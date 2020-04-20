@@ -1,6 +1,7 @@
-# sustain-uwincm
+# EarthVM
 
-This is a SUSTAIN fork of the Unified Wave INterface - Coupled Model (UWIN-CM).
+EarthVM is a thin wrapper and a high-level interface to the Earth System Modeling Framework, 
+with user routines to easily couple WRF, HYCOM, UMWM, and similar models.
 
 ## Getting started
 
