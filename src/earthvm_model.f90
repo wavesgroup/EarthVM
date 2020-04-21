@@ -1,18 +1,9 @@
 module earthvm_model
-  use ESMF, only: ESMF_Clock, ESMF_ClockCreate, &
-                  ESMF_GridCompInitialize, ESMF_GridCompRun, &
-                  ESMF_GridCompFinalize, ESMF_GridCompSetServices, &
-                  ESMF_SYNC_BLOCKING, ESMF_SYNC_NONBLOCKING, &
-                  ESMF_DistGrid, ESMF_DistGridCreate, ESMF_Grid, ESMF_GridComp, &
-                  ESMF_Field, &
-                  ESMF_LogWrite, ESMF_LogFlush, ESMF_LOGMSG_INFO, &
-                  ESMF_KIND_I4, ESMF_KIND_R4, &
-                  ESMF_State, ESMF_Time, ESMF_TimeInterval, &
-                  ESMF_VM, ESMF_VMGather, ESMF_VMBroadcast, &
-                  ESMF_INDEX_GLOBAL
+  use ESMF !TODO , only: ...
   use earthvm_assert, only: assert_success
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_pet_count, &
                            earthvm_get_vm
+  use earthvm_esmf, only: datetime
   implicit none
 
   private
@@ -33,7 +24,80 @@ module earthvm_model
     procedure, pass(self) :: initialize, run, finalize, set_services
   end type earthvm_model_type
 
+  interface earthvm_model_type
+    module procedure :: earthvm_model_constructor
+  end interface earthvm_model_type
+
 contains
+
+  type(earthvm_model_type) function earthvm_model_constructor( &
+    name, start_time, stop_time, time_step, user_services) result(self)
+    character(*), intent(in) :: name
+    type(datetime), intent(in) :: start_time, stop_time
+    integer, intent(in) :: time_step ! seconds
+    interface
+      subroutine user_services(gridcomp, rc)
+        import :: ESMF_GridComp
+        type(ESMF_GridComp) :: gridcomp
+        integer, intent(out) :: rc
+      end subroutine user_services
+    end interface
+    integer :: rc
+    self % name = name
+
+    call ESMF_TimeIntervalSet(timeinterval=self % time_step, s=time_step, rc=rc)
+    call assert_success(rc)
+
+    CALL ESMF_TimeSet(time = self % start_time,   &
+                      yy   = start_time % year,   &
+                      mm   = start_time % month,  &
+                      dd   = start_time % day,    &
+                      h    = start_time % hour,   &
+                      m    = start_time % minute, &
+                      s    = start_time % second, &
+                      rc   = rc)
+    call assert_success(rc)
+
+    CALL ESMF_TimeSet(time = self % stop_time,   &
+                      yy   = stop_time % year,   &
+                      mm   = stop_time % month,  &
+                      dd   = stop_time % day,    &
+                      h    = stop_time % hour,   &
+                      m    = stop_time % minute, &
+                      s    = stop_time % second, &
+                      rc   = rc)
+    call assert_success(rc)
+
+    self % clock = ESMF_ClockCreate(timeStep = self % time_step,   &
+                                    startTime = self % start_time, &
+                                    stopTime  = self % stop_time,  &
+                                    rc        = rc)
+    call assert_success(rc)
+
+    self % gridded_component = ESMF_GridCompCreate(name        = self % name,            &
+                                                   clock       = self % clock,           &
+                                                   contextflag = ESMF_CONTEXT_PARENT_VM, &
+                                                   rc          = rc)
+    call assert_success(rc)
+
+    self % import_state = ESMF_StateCreate(name        = self % name // 'import_state', &
+                                           stateintent = ESMF_STATEINTENT_IMPORT,       &
+                                           rc          = rc)
+    call assert_success(rc)
+
+    self % export_state = ESMF_StateCreate(name        = self % name // 'export_state', &
+                                           stateintent = ESMF_STATEINTENT_EXPORT,       &
+                                           rc          = rc)
+    call assert_success(rc)
+
+    !call self % set_services(set_wrf_services)
+    call ESMF_GridCompSetServices(gridcomp    = self % gridded_component, &
+                                  userRoutine = user_services,            &
+                                  rc          = rc)
+    call assert_success(rc)
+
+  end function earthvm_model_constructor
+
 
   subroutine initialize(self)
     class(earthvm_model_type), intent(in out) :: self

@@ -3,7 +3,7 @@ LIB = libearthvm.a
 OBJS = earthvm_assert.o \
        earthvm_esmf.o \
        earthvm_model.o \
-       earthvm_model_wrf.o \
+       earthvm_wrf.o \
        earthvm_io.o \
        earthvm_state.o
 
@@ -27,5 +27,6 @@ clean:
 
 earthvm_esmf.o: earthvm_assert.o earthvm_state.o
 earthvm_io.o: earthvm_assert.o earthvm_state.o
-earthvm_model_wrf.o: earthvm_assert.o earthvm_io.o
+earthvm_model.o: earthvm_assert.o earthvm_esmf.o earthvm_state.o
 earthvm_state.o: earthvm_assert.o
+earthvm_wrf.o: earthvm_assert.o earthvm_io.o
