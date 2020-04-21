@@ -44,8 +44,8 @@ cd wrf-4.2
 ### Download and build HYCOM
 
 ```
-git clone https://github.com/hycom/hycom-src
-cd hycom-src
+git clone -b 2.3.01 https://github.com/hycom/hycom-src hycom-2.3.01
+cd hycom-2.3.01
 ```
 
 ### Download and build UMWM

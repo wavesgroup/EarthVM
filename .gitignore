@@ -5,6 +5,8 @@
 
 esmf-8.0.0
 wrf-4.2
+netcdf
+src/main
 
 WORKLOG.md
 namelist.output
