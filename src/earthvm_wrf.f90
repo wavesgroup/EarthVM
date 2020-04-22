@@ -5,6 +5,7 @@ module earthvm_wrf
   use earthvm_esmf, only: create_distgrid, create_grid, create_field
   use earthvm_io, only: write_grid_to_netcdf
   use earthvm_model, only: earthvm_model_type
+  use earthvm_state, only: earthvm_get_mpicomm
   use module_wrf_top, only: get_ijk_from_grid, head_grid, &
                             wrf_init, wrf_run, wrf_finalize
 
@@ -50,6 +51,9 @@ contains
     integer :: ims, ime, jms, jme, kms, kme
     integer :: ips, ipe, jps, jpe, kps, kpe
     print *, 'In wrf_component_init'
+
+    call wrf_set_dm_communicator(earthvm_get_mpicomm())
+
     call wrf_init()
     call get_ijk_from_grid(head_grid, &
                            ids, ide, jds, jde, kds, kde, &

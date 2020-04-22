@@ -2,6 +2,7 @@ LIB = libearthvm.a
 
 OBJS = earthvm_assert.o \
        earthvm_esmf.o \
+       earthvm_hycom.o \
        earthvm_model.o \
        earthvm_wrf.o \
        earthvm_io.o \
@@ -26,7 +27,8 @@ clean:
 	$(RM) main *.a *.o *.mod PET*
 
 earthvm_esmf.o: earthvm_assert.o earthvm_state.o
+earthvm_hycom.o: earthvm_assert.o earthvm_model.o earthvm_state.o earthvm_io.o
 earthvm_io.o: earthvm_assert.o earthvm_state.o
 earthvm_model.o: earthvm_assert.o earthvm_esmf.o earthvm_state.o
 earthvm_state.o: earthvm_assert.o
-earthvm_wrf.o: earthvm_assert.o earthvm_io.o
+earthvm_wrf.o: earthvm_assert.o earthvm_model.o earthvm_state.o earthvm_io.o

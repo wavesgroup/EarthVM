@@ -46,6 +46,7 @@ cd wrf-4.2
 ```
 git clone -b 2.3.01 https://github.com/hycom/hycom-src hycom-2.3.01
 cd hycom-2.3.01
+ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1" TYPE=mpi make
 ```
 
 ### Download and build UMWM

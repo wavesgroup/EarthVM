@@ -1,6 +1,5 @@
 module earthvm_state
-  use ESMF, only: ESMF_CALKIND_GREGORIAN, ESMF_Finalize, ESMF_Initialize, &
-                  ESMF_LOGKIND_MULTI, ESMF_VM, ESMF_VMGet
+  use ESMF!TODO, only: ...
   use earthvm_assert, only: assert, assert_success
   implicit none
   private
@@ -16,7 +15,7 @@ contains
     integer :: rc
     call ESMF_Initialize(defaultCalKind = ESMF_CALKIND_GREGORIAN, &
                          vm             = vm,                     &
-                         logkindflag    = ESMF_LOGKIND_MULTI,     &
+                         logkindflag    = ESMF_LOGKIND_SINGLE,    &
                          rc             = rc)
     call assert_success(rc)
     earthvm_is_initialized = .true.

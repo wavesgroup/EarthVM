@@ -1,6 +1,7 @@
 #!/bin/bash
 
-export WRF_DIR=$(pwd)/wrf-4.2
+export WRF=$(pwd)/wrf-4.2
+export HYCOM=$(pwd)/hycom-2.3.01
 
 export HDF5=$(pwd)/netcdf
 export NETCDF=$(pwd)/netcdf
