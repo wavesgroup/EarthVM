@@ -19,25 +19,25 @@ contains
   subroutine set_services(gridded_component, rc)
     type(ESMF_GridComp) :: gridded_component
     integer, intent(out) :: rc
-    call ESMF_GridCompSetEntryPoint(gridcomp    = gridded_component, &
-                                    methodflag  = ESMF_METHOD_INITIALIZE,   &
-                                    userRoutine = wrf_component_init,       &
+    call ESMF_GridCompSetEntryPoint(gridcomp    = gridded_component,      &
+                                    methodflag  = ESMF_METHOD_INITIALIZE, &
+                                    userRoutine = model_init,             &
                                     rc          = rc)
     call assert_success(rc)
     call ESMF_GridCompSetEntryPoint(gridcomp    = gridded_component, &
-                                    methodflag  = ESMF_METHOD_RUN,          &
-                                    userRoutine = wrf_component_run,        &
+                                    methodflag  = ESMF_METHOD_RUN,   &
+                                    userRoutine = model_run,         &
                                     rc          = rc)
     call assert_success(rc)
-    call ESMF_GridCompSetEntryPoint(gridcomp    = gridded_component, &
-                                    methodflag  = ESMF_METHOD_FINALIZE,     &
-                                    userRoutine = wrf_component_finalize,   &
+    call ESMF_GridCompSetEntryPoint(gridcomp    = gridded_component,    &
+                                    methodflag  = ESMF_METHOD_FINALIZE, &
+                                    userRoutine = model_finalize,       &
                                     rc          = rc)
     call assert_success(rc)
   end subroutine set_services
 
 
-  subroutine wrf_component_init(gridded_component, import_state, export_state, clock, rc)
+  subroutine model_init(gridded_component, import_state, export_state, clock, rc)
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
@@ -83,26 +83,69 @@ contains
     call assert_success(rc)
 
     rc = ESMF_SUCCESS
-  end subroutine wrf_component_init
+  end subroutine model_init
 
 
-  subroutine wrf_component_run(gridded_component, import_state, export_state, clock, rc)
+  subroutine model_run(gridded_component, import_state, export_state, clock, rc)
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
     integer, intent(out) :: rc
-    print *, 'In wrf_component_run'
+
+    type(ESMF_Field) :: field
+    real(ESMF_KIND_R4), pointer :: field_data(:,:)
+    integer :: lb(2), ub(2)
+
+    call set_wrf_clock(clock)
+    call wrf_run()
+
+    call ESMF_StateGet(export_state, 'u10', field, rc=rc)
+    call assert_success(rc)
+
+    call ESMF_FieldGet(field, farrayPtr=field_data, &
+                       exclusiveLBound=lb, exclusiveUBound=ub, rc=rc)
+    call assert_success(rc)
+    field_data(lb(1):ub(1),lb(2):ub(2)) = head_grid % u10(lb(1):ub(1),lb(2):ub(2))
+
+    call ESMF_ClockAdvance(clock, rc=rc)
+    call assert_success(rc)
+
     rc = ESMF_SUCCESS
-  end subroutine wrf_component_run
+  end subroutine model_run
 
 
-  subroutine wrf_component_finalize(gridded_component, import_state, export_state, clock, rc)
+  subroutine set_wrf_clock(clock)
+    ! Sets WRF's internal clock to the input ESMF clock.
+    use module_utility, only: WRFU_Time
+    type(ESMF_Clock), intent(in) :: clock
+    type(ESMF_Time) :: current_time
+    type(ESMF_TimeInterval) :: time_step
+    character(256) :: start_time_string, stop_time_string
+    type(WRFU_Time) :: wrf_start_time, wrf_stop_time
+
+    call ESMF_ClockGet(clock, timeStep=time_step, currTime=current_time)
+    call ESMF_TimeGet(current_time, timeStringISOFrac=start_time_string)
+    call ESMF_TimeGet(current_time + time_step, timeStringISOFrac=stop_time_string)
+
+    start_time_string(11:11) = '_'
+    stop_time_string(11:11) = '_'
+
+    call wrf_atotime(start_time_string, wrf_start_time)
+    call wrf_atotime(stop_time_string, wrf_stop_time)
+
+    head_grid % start_subtime = wrf_start_time
+    head_grid % stop_subtime  = wrf_stop_time
+
+  end subroutine set_wrf_clock
+
+
+  subroutine model_finalize(gridded_component, import_state, export_state, clock, rc)
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
     integer, intent(out) :: rc
-    print *, 'In wrf_component_finalize'
+    call wrf_finalize(no_shutdown=.true.)
     rc = ESMF_SUCCESS
-  end subroutine wrf_component_finalize
+  end subroutine model_finalize
 
 end module earthvm_wrf

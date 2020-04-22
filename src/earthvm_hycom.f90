@@ -22,23 +22,23 @@ contains
     integer, intent(out) :: rc
     call ESMF_GridCompSetEntryPoint(gridcomp    = gridded_component, &
                                     methodflag  = ESMF_METHOD_INITIALIZE,   &
-                                    userRoutine = component_init,       &
+                                    userRoutine = model_init,       &
                                     rc          = rc)
     call assert_success(rc)
     call ESMF_GridCompSetEntryPoint(gridcomp    = gridded_component, &
                                     methodflag  = ESMF_METHOD_RUN,          &
-                                    userRoutine = component_run,        &
+                                    userRoutine = model_run,        &
                                     rc          = rc)
     call assert_success(rc)
     call ESMF_GridCompSetEntryPoint(gridcomp    = gridded_component, &
                                     methodflag  = ESMF_METHOD_FINALIZE,     &
-                                    userRoutine = component_finalize,   &
+                                    userRoutine = model_finalize,   &
                                     rc          = rc)
     call assert_success(rc)
   end subroutine set_services
 
 
-  subroutine component_init(gridded_component, import_state, export_state, clock, rc)
+  subroutine model_init(gridded_component, import_state, export_state, clock, rc)
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
@@ -67,26 +67,26 @@ contains
     !call assert_success(rc)
 
     rc = ESMF_SUCCESS
-  end subroutine component_init
+  end subroutine model_init
 
 
-  subroutine component_run(gridded_component, import_state, export_state, clock, rc)
+  subroutine model_run(gridded_component, import_state, export_state, clock, rc)
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
     integer, intent(out) :: rc
-    print *, 'In hycom_component_run'
+    print *, 'In hycom_model_run'
     rc = ESMF_SUCCESS
-  end subroutine component_run
+  end subroutine model_run
 
 
-  subroutine component_finalize(gridded_component, import_state, export_state, clock, rc)
+  subroutine model_finalize(gridded_component, import_state, export_state, clock, rc)
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
     integer, intent(out) :: rc
-    print *, 'In hycom_component_finalize'
+    print *, 'In hycom_model_finalize'
     rc = ESMF_SUCCESS
-  end subroutine component_finalize
+  end subroutine model_finalize
 
 end module earthvm_hycom
