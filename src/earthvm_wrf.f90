@@ -4,7 +4,6 @@ module earthvm_wrf
   use earthvm_assert, only: assert_success
   use earthvm_esmf, only: create_distgrid, create_grid, create_field
   use earthvm_io, only: write_grid_to_netcdf
-  use earthvm_model, only: earthvm_model_type
   use earthvm_state, only: earthvm_get_mpicomm
   use module_wrf_top, only: get_ijk_from_grid, head_grid, &
                             wrf_init, wrf_run, wrf_finalize

@@ -59,7 +59,6 @@ contains
 
     do n = 0, earthvm_get_pet_count() - 1
       if (earthvm_get_local_pet() == n) then
-        print *, earthvm_get_local_pet(), lb, ub
         call netcdf_check(nf90_open(filename, NF90_WRITE, ncid))
         call netcdf_check(nf90_inq_varid(ncid, 'Longitude', lonid))
         call netcdf_check(nf90_inq_varid(ncid, 'Latitude', latid))
