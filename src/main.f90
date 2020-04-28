@@ -3,7 +3,8 @@ program main
   use ESMF
   use earthvm_state, only: earthvm_initialize, earthvm_finalize, earthvm_get_pet_count, earthvm_get_local_pet
   use earthvm_model, only: earthvm_model_type
-  use earthvm_esmf, only: datetime, create_distgrid, create_grid, create_field, regrid_field_store
+  use earthvm_esmf, only: datetime, create_distgrid, create_grid, create_field
+  use earthvm_regrid, only: earthvm_regrid_type
   use earthvm_io, only: write_grid_to_netcdf
   use earthvm_wrf, only: set_wrf_services => set_services
   use earthvm_hycom, only: set_hycom_services => set_services
@@ -23,6 +24,9 @@ program main
   real, allocatable :: lon(:,:), lat(:,:)
   integer, allocatable :: mask(:,:)
   real :: lon1, lon2, lat1, lat2, dlon, dlat
+  real, pointer :: field_data(:,:)
+
+  type(earthvm_regrid_type) :: regrid
 
   call earthvm_initialize()
 
@@ -82,6 +86,16 @@ program main
   grid = create_grid(distgrid, 'test grid', lon, lat, mask)
   call write_grid_to_netcdf(grid, 'test_grid.nc')
   field = create_field(grid, 'target_field')
+
+  call regrid % regrid_field_store(atmosphere_model % get_field('u10'), field)
+  print *, 'regrid object is initialized', regrid % initialized
+
+  call ESMF_FieldGet(field, farrayPtr=field_data)
+  print *, 'before regrid', field_data(is:ie,js:je)
+
+  call regrid % regrid_field(atmosphere_model % get_field('u10'), field)
+
+  print *, 'after regrid', field_data(is:ie,js:je)
 
   do n = 1, 90
     !call atmosphere_model % run()
