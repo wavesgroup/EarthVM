@@ -21,7 +21,11 @@ module earthvm_model
     type(ESMF_TimeInterval) :: time_step
     type(ESMF_VM) :: vm
   contains
-    procedure, pass(self) :: initialize, run, finalize, set_services
+    procedure, pass(self) :: get_field
+    procedure, pass(self) :: initialize
+    procedure, pass(self) :: run
+    procedure, pass(self) :: finalize
+    procedure, pass(self) :: set_services
   end type earthvm_model_type
 
   interface earthvm_model_type
@@ -97,6 +101,20 @@ contains
     call assert_success(rc)
 
   end function earthvm_model_constructor
+
+
+  type(ESMF_Field) function get_field(self, field_name) result(field)
+    class(earthvm_model_type), intent(in) :: self
+    character(*), intent(in) :: field_name
+    integer :: rc
+    call ESMF_StateGet(self % import_state, field_name, field, rc=rc)
+    if (rc == ESMF_RC_NOT_FOUND) then
+      call ESMF_StateGet(self % export_state, field_name, field, rc=rc)
+      call assert_success(rc)
+    else
+      call assert_success(rc)
+    end if
+  end function get_field
 
 
   subroutine initialize(self)
