@@ -1,7 +1,6 @@
 # EarthVM
 
-EarthVM is a thin wrapper and a high-level interface to the Earth System Modeling Framework, 
-with user routines to easily couple WRF, HYCOM, UMWM, and similar models.
+EarthVM is a lightweight parallel framework for running and coupling weather, ocean, and wave models.
 
 ## Getting started
 
