@@ -4,7 +4,7 @@ module earthvm_esmf
   use earthvm_state, only: earthvm_get_vm, earthvm_get_local_pet, earthvm_get_pet_count
   implicit none
   private
-  public :: create_distgrid, create_grid, create_field, datetime, regrid_field_store
+  public :: create_distgrid, create_grid, create_field, datetime, get_grid
 
   type :: datetime
     integer :: year, month, day, hour=0, minute=0, second=0
@@ -154,14 +154,11 @@ contains
 
   end function create_grid
 
-  subroutine regrid_field_store(source_field, destination_field, regrid_weights)
-    type(ESMF_Field), intent(in) :: source_field
-    type(ESMF_Field), intent(in out) :: destination_field
-    type(ESMF_RouteHandle), intent(in out) :: regrid_weights
+  type(ESMF_Grid) function get_grid(field) result(grid)
+    type(ESMF_Field), intent(in) :: field
     integer :: rc
-    call ESMF_FieldRegridStore(source_field, destination_field, &
-                               routehandle=regrid_weights, rc=rc)
+    call ESMF_FieldGet(field, grid=grid, rc=rc)
     call assert_success(rc)
-  end subroutine regrid_field_store
+  end function get_grid
 
 end module earthvm_esmf
