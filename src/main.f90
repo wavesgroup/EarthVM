@@ -5,7 +5,7 @@ program main
   use earthvm_model, only: earthvm_model_type
   use earthvm_esmf, only: datetime, create_distgrid, create_grid, create_field
   use earthvm_regrid, only: earthvm_regrid_type
-  use earthvm_io, only: write_grid_to_netcdf
+  use earthvm_io, only: write_grid_to_netcdf, write_fields_to_netcdf
   use earthvm_wrf, only: set_wrf_services => set_services
   use earthvm_hycom, only: set_hycom_services => set_services
 
@@ -18,13 +18,14 @@ program main
 
   type(ESMF_DistGrid) :: distgrid
   type(ESMF_Grid) :: grid
-  type(ESMF_Field) :: field
+  type(ESMF_Field) :: destination_fields(3)
   type(ESMF_RouteHandle) :: regrid_weights
   integer :: im, jm, is, ie, js, je, i, j
   real, allocatable :: lon(:,:), lat(:,:)
   integer, allocatable :: mask(:,:)
   real :: lon1, lon2, lat1, lat2, dlon, dlat
   real, pointer :: field_data(:,:)
+  integer :: ub(2), lb(2)
 
   type(earthvm_regrid_type) :: regrid
 
@@ -80,22 +81,35 @@ program main
   end do
   mask = 1
 
-  print *, local_pet, is, ie, js, je
-
   distgrid = create_distgrid([is, js], [ie, je], [1, 1], [im, jm])
   grid = create_grid(distgrid, 'test grid', lon, lat, mask)
   call write_grid_to_netcdf(grid, 'test_grid.nc')
-  field = create_field(grid, 'target_field')
+  destination_fields = [create_field(grid, 'u10'), &
+                        create_field(grid, 'v10'), &
+                        create_field(grid, 'sst')]
 
-  call regrid % regrid_field_store(atmosphere_model % get_field('u10'), field)
-  print *, 'regrid object is initialized', regrid % initialized
+  call regrid % regrid_field_store(atmosphere_model % get_field('u10'), &
+                                   destination_fields(1))
+  !print *, 'regrid object is initialized', regrid % initialized
 
-  call ESMF_FieldGet(field, farrayPtr=field_data)
-  print *, 'before regrid', field_data(is:ie,js:je)
+  !call ESMF_FieldGet(field, farrayPtr=field_data)
+  !print *, 'before regrid', field_data(is:ie,js:je)
 
-  call regrid % regrid_field(atmosphere_model % get_field('u10'), field)
+  call regrid % regrid_field(atmosphere_model % get_field('u10'), &
+                             destination_fields(1))
+  call regrid % regrid_field(atmosphere_model % get_field('v10'), &
+                             destination_fields(2))
+  call regrid % regrid_field(atmosphere_model % get_field('sst'), &
+                             destination_fields(3))
 
-  print *, 'after regrid', field_data(is:ie,js:je)
+  !print *, 'after regrid', field_data(is:ie,js:je)
+
+  call write_fields_to_netcdf([atmosphere_model % get_field('u10'),  &
+                               atmosphere_model % get_field('v10'),  &
+                               atmosphere_model % get_field('sst')], &
+                              'source_fields.nc')
+
+  call write_fields_to_netcdf(destination_fields, 'destination_fields.nc')
 
   do n = 1, 90
     !call atmosphere_model % run()

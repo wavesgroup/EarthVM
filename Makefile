@@ -1,7 +1,7 @@
 # EarthVM Makefile
 
 FC = mpif90
-FFLAGS = -O0 -g -fbacktrace -fconvert=big-endian # big-endian needed for WRF
+FFLAGS = -Wall -O0 -g -fbacktrace -fconvert=big-endian # big-endian needed for WRF
 CPPFLAGS = -I$(ESMF_INCLUDE) -I$(WRF)/main -I$(WRF)/external/esmf_time_f90 -I$(HYCOM) -I$(NETCDF)/include
 LDFLAGS = -L$(WRF)/external/esmf_time_f90 -lesmf_time \
 	  -L$(WRF)/external/io_netcdf -lwrfio_nf \

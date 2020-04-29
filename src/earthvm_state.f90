@@ -5,7 +5,6 @@ module earthvm_state
   private
   public :: earthvm_initialize, earthvm_finalize, earthvm_get_mpicomm, &
             earthvm_get_pet_count, earthvm_get_local_pet, earthvm_get_vm
-
   type(ESMF_VM) :: vm
   logical :: earthvm_is_initialized = .false.
 
@@ -29,7 +28,7 @@ contains
     integer :: rc
     call assert(earthvm_is_initialized,          &
                 'Error in earthvm_get_mpicomm(): &
-                 EarthVM has not been initialized.')
+               & EarthVM has not been initialized.')
     call ESMF_VMGet(vm=vm, mpiCommunicator=res, rc=rc)
     call assert_success(rc)
   end function earthvm_get_mpicomm
@@ -38,7 +37,7 @@ contains
     integer :: rc
     call assert(earthvm_is_initialized,            &
                 'Error in earthvm_get_local_pet(): &
-                 EarthVM has not been initialized.')
+               & EarthVM has not been initialized.')
     call ESMF_VMGet(vm=vm, localPET=res, rc=rc)
     call assert_success(rc)
   end function earthvm_get_local_pet
@@ -47,7 +46,7 @@ contains
     integer :: rc
     call assert(earthvm_is_initialized,            &
                 'Error in earthvm_get_pet_count(): &
-                 EarthVM has not been initialized.')
+               & EarthVM has not been initialized.')
     call ESMF_VMGet(vm=vm, petCount=res, rc=rc)
     call assert_success(rc)
   end function earthvm_get_pet_count
@@ -55,7 +54,7 @@ contains
   type(ESMF_VM) function earthvm_get_vm() result(res)
     call assert(earthvm_is_initialized,     &
                 'Error in earthvm_get_vm(): &
-                 EarthVM has not been initialized.')
+               & EarthVM has not been initialized.')
     res = vm
   end function earthvm_get_vm
 

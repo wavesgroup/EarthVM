@@ -4,7 +4,8 @@ module earthvm_esmf
   use earthvm_state, only: earthvm_get_vm, earthvm_get_local_pet, earthvm_get_pet_count
   implicit none
   private
-  public :: create_distgrid, create_grid, create_field, datetime, get_grid
+  public :: create_distgrid, create_grid, create_field, datetime, get_grid, &
+            set_field_values
 
   type :: datetime
     integer :: year, month, day, hour=0, minute=0, second=0
@@ -95,8 +96,7 @@ contains
     integer :: lb(2), ub(2)
     real(ESMF_KIND_R4), pointer :: lon_ptr(:,:), lat_ptr(:,:)
     integer(ESMF_KIND_I4), pointer :: mask_ptr(:,:)
-
-    integer :: local_pet, pet_count, n, rc
+    integer :: rc
 
     grid = ESMF_GridCreate(name          = name,                  &
                            coordsys      = ESMF_COORDSYS_SPH_DEG, &
@@ -160,5 +160,18 @@ contains
     call ESMF_FieldGet(field, grid=grid, rc=rc)
     call assert_success(rc)
   end function get_grid
+
+
+  subroutine set_field_values(field, field_values)
+    type(ESMF_Field), intent(in out) :: field
+    real, intent(in) :: field_values(:,:)
+    real, pointer :: field_data_pointer(:,:)
+    integer :: lb(2), ub(2)
+    integer :: rc
+    call ESMF_FieldGet(field, farrayPtr=field_data_pointer, &
+                       exclusiveLBound=lb, exclusiveUBound=ub, rc=rc)
+    call assert_success(rc)
+    field_data_pointer(lb(1):ub(1),lb(2):ub(2)) = field_values(:,:)
+  end subroutine set_field_values
 
 end module earthvm_esmf

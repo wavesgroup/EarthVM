@@ -15,7 +15,6 @@ module earthvm_model
     type(ESMF_DistGrid) :: distgrid
     type(ESMF_Grid) :: grid
     type(ESMF_GridComp) :: gridded_component
-    type(ESMF_Field), allocatable :: import_field(:), export_field(:)
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Time) :: current_time, start_time, stop_time
     type(ESMF_TimeInterval) :: time_step

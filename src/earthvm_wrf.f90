@@ -2,7 +2,7 @@ module earthvm_wrf
 
   use ESMF !TODO , only: ...
   use earthvm_assert, only: assert_success
-  use earthvm_esmf, only: create_distgrid, create_grid, create_field
+  use earthvm_esmf, only: create_distgrid, create_grid, create_field, set_field_values
   use earthvm_io, only: write_grid_to_netcdf
   use earthvm_state, only: earthvm_get_mpicomm
   use module_wrf_top, only: get_ijk_from_grid, head_grid, &
@@ -78,6 +78,10 @@ contains
     call assert_success(rc)
 
     fields = [create_field(grid, 'u10'), create_field(grid, 'v10')]
+
+    call set_field_values(fields(1), head_grid % u10(ips:ipe,jps:jpe))
+    call set_field_values(fields(2), head_grid % v10(ips:ipe,jps:jpe))
+
     call ESMF_StateAdd(export_state, fields, rc=rc)
     call assert_success(rc)
 
