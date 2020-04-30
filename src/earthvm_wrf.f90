@@ -74,14 +74,13 @@ contains
     call write_grid_to_netcdf(grid, 'wrf_grid.nc')
 
     fields = [create_field(grid, 'sst')]
+    call set_field_values(fields(1), head_grid % tsk(ips:ipe,jps:jpe))
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
 
     fields = [create_field(grid, 'u10'), create_field(grid, 'v10')]
-
     call set_field_values(fields(1), head_grid % u10(ips:ipe,jps:jpe))
     call set_field_values(fields(2), head_grid % v10(ips:ipe,jps:jpe))
-
     call ESMF_StateAdd(export_state, fields, rc=rc)
     call assert_success(rc)
 
@@ -98,17 +97,32 @@ contains
     type(ESMF_Field) :: field
     real(ESMF_KIND_R4), pointer :: field_data(:,:)
     integer :: lb(2), ub(2)
+    integer :: ids, ide, jds, jde, kds, kde
+    integer :: ims, ime, jms, jme, kms, kme
+    integer :: ips, ipe, jps, jpe, kps, kpe
+
+    call get_ijk_from_grid(head_grid, &
+                           ids, ide, jds, jde, kds, kde, &
+                           ims, ime, jms, jme, kms, kme, &
+                           ips, ipe, jps, jpe, kps, kpe)
+
+    ! exclude the last staggered grid cell
+    ide = ide - 1
+    jde = jde - 1
+    ipe = min(ide, ipe)
+    jpe = min(jde, jpe)
 
     call set_wrf_clock(clock)
     call wrf_run()
 
-    call ESMF_StateGet(export_state, 'u10', field, rc=rc)
-    call assert_success(rc)
+    call ESMF_StateGet(import_state, 'sst', field)
+    call set_field_values(field, head_grid % tsk(ips:ipe,jps:jpe))
 
-    call ESMF_FieldGet(field, farrayPtr=field_data, &
-                       exclusiveLBound=lb, exclusiveUBound=ub, rc=rc)
-    call assert_success(rc)
-    field_data(lb(1):ub(1),lb(2):ub(2)) = head_grid % u10(lb(1):ub(1),lb(2):ub(2))
+    call ESMF_StateGet(export_state, 'u10', field)
+    call set_field_values(field, head_grid % u10(ips:ipe,jps:jpe))
+
+    call ESMF_StateGet(export_state, 'v10', field)
+    call set_field_values(field, head_grid % u10(ips:ipe,jps:jpe))
 
     call ESMF_ClockAdvance(clock, rc=rc)
     call assert_success(rc)

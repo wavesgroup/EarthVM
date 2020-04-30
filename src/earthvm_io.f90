@@ -83,7 +83,7 @@ contains
     character(100) :: field_names(size(fields))
     real, pointer :: lon_ptr(:,:), lat_ptr(:,:), field_data_ptr(:,:)
     integer, pointer :: mask_ptr(:,:)
-    integer :: ncid, xdimid, ydimid, varid
+    integer :: ncid, xdimid, ydimid, tdimid, varid
     integer :: x_size, y_size
     integer(ESMF_KIND_I4) :: lb(2), ub(2), lb_global(2), ub_global(2)
     integer :: n, nfield, rc
@@ -93,8 +93,6 @@ contains
       call ESMF_FieldGet(fields(nfield), name=field_names(nfield), rc=rc)
       call assert_success(rc)
     end do
-
-    print *, field_names
 
     ! get grid
     call ESMF_FieldGet(fields(1), grid=grid, rc=rc)
@@ -126,12 +124,13 @@ contains
       call netcdf_check(nf90_create(filename, NF90_CLOBBER, ncid))
       call netcdf_check(nf90_def_dim(ncid, 'X', x_size, xdimid))
       call netcdf_check(nf90_def_dim(ncid, 'Y', y_size, ydimid))
+      call netcdf_check(nf90_def_dim(ncid, 'Time', 0, tdimid))
       call netcdf_check(nf90_def_var(ncid, 'Longitude', NF90_FLOAT, [xdimid, ydimid], varid))
       call netcdf_check(nf90_def_var(ncid, 'Latitude', NF90_FLOAT, [xdimid, ydimid], varid))
       call netcdf_check(nf90_def_var(ncid, 'Seamask', NF90_INT, [xdimid, ydimid], varid))
       do nfield = 1, size(fields)
         call netcdf_check(nf90_def_var(ncid, trim(field_names(nfield)), &
-                                       NF90_FLOAT, [xdimid, ydimid], varid))
+                                       NF90_FLOAT, [xdimid, ydimid, tdimid], varid))
       end do
       call netcdf_check(nf90_enddef(ncid))
       call netcdf_check(nf90_close(ncid))
@@ -142,16 +141,16 @@ contains
         call netcdf_check(nf90_open(filename, NF90_WRITE, ncid))
         call netcdf_check(nf90_inq_varid(ncid, 'Longitude', varid))
         call netcdf_check(nf90_put_var(ncid, varid, lon_ptr(lb(1):ub(1), lb(2):ub(2)), &
-                                       start=[lb(1), lb(2)], &
-                                       count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1]))
+                                       start=[lb(1), lb(2), 1], &
+                                       count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1, 1]))
         call netcdf_check(nf90_inq_varid(ncid, 'Latitude', varid))
         call netcdf_check(nf90_put_var(ncid, varid, lat_ptr(lb(1):ub(1), lb(2):ub(2)), &
-                                       start=[lb(1), lb(2)], &
-                                       count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1]))
+                                       start=[lb(1), lb(2), 1], &
+                                       count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1, 1]))
         call netcdf_check(nf90_inq_varid(ncid, 'Seamask', varid))
         call netcdf_check(nf90_put_var(ncid, varid, mask_ptr(lb(1):ub(1), lb(2):ub(2)), &
-                                       start=[lb(1), lb(2)], &
-                                       count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1]))
+                                       start=[lb(1), lb(2), 1], &
+                                       count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1, 1]))
 
         do nfield = 1, size(fields)
           call ESMF_FieldGet(fields(nfield), farrayPtr=field_data_ptr, rc=rc)
@@ -159,7 +158,7 @@ contains
           call netcdf_check(nf90_inq_varid(ncid, field_names(nfield), varid))
           call netcdf_check(nf90_put_var(ncid, varid, &
             field_data_ptr(lb(1):ub(1), lb(2):ub(2)), &
-            start=[lb(1), lb(2)], count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1]))
+            start=[lb(1), lb(2), 1], count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1, 1]))
         end do
         call netcdf_check(nf90_close(ncid))
 

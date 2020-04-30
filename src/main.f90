@@ -19,13 +19,13 @@ program main
   type(ESMF_DistGrid) :: distgrid
   type(ESMF_Grid) :: grid
   type(ESMF_Field) :: destination_fields(3)
-  type(ESMF_RouteHandle) :: regrid_weights
   integer :: im, jm, is, ie, js, je, i, j
   real, allocatable :: lon(:,:), lat(:,:)
   integer, allocatable :: mask(:,:)
   real :: lon1, lon2, lat1, lat2, dlon, dlat
   real, pointer :: field_data(:,:)
   integer :: ub(2), lb(2)
+  character(4) :: counter = '0000'
 
   type(earthvm_regrid_type) :: regrid
 
@@ -107,12 +107,25 @@ program main
   call write_fields_to_netcdf([atmosphere_model % get_field('u10'),  &
                                atmosphere_model % get_field('v10'),  &
                                atmosphere_model % get_field('sst')], &
-                              'source_fields.nc')
+                              'source_fields_0000.nc')
 
-  call write_fields_to_netcdf(destination_fields, 'destination_fields.nc')
+  call write_fields_to_netcdf(destination_fields, 'destination_fields_0000.nc')
 
   do n = 1, 90
-    !call atmosphere_model % run()
+    if (local_pet == 0) print *, 'calling atmosphere_model % run()'
+    call atmosphere_model % run()
+    call ESMF_FieldGet(atmosphere_model % get_field('u10'), farrayPtr=field_data, &
+                       exclusiveLBound=lb, exclusiveUBound=ub)
+    if (local_pet == 0) &
+      print *, 'u10 min/max: ', local_pet, &
+      minval(field_data(lb(1):ub(1), lb(2):ub(2))), &
+      maxval(field_data(lb(1):ub(1), lb(2):ub(2)))
+
+    write(counter, '(i4.4)') n
+    call write_fields_to_netcdf([atmosphere_model % get_field('u10'),  &
+                                 atmosphere_model % get_field('v10'),  &
+                                 atmosphere_model % get_field('sst')], &
+                                'source_fields_' // counter // '.nc')
   end do
   call atmosphere_model % finalize()
 
