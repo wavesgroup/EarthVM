@@ -2,6 +2,7 @@
 
 FC = mpif90
 FFLAGS = -Wall -O0 -g -fbacktrace -fconvert=big-endian # big-endian needed for WRF
+#FCFFLAGS      =	-fPIC -fno-second-underscore -O2 -march=native -m64 -fdefault-real-8 -fdefault-double-8
 CPPFLAGS = -I$(ESMF_INCLUDE) -I$(WRF)/main -I$(WRF)/external/esmf_time_f90 -I$(HYCOM) -I$(NETCDF)/include
 LDFLAGS = -L$(WRF)/external/esmf_time_f90 -lesmf_time \
 	  -L$(WRF)/external/io_netcdf -lwrfio_nf \
@@ -44,5 +45,5 @@ download_hycom:
 	git clone -b 2.3.01 https://github.com/hycom/hycom-src hycom-2.3.01
 
 hycom:
-	cd $(HYCOM) && ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1" TYPE=mpi make
+	cd $(HYCOM) && ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM" TYPE=mpi make
 	ar rcs $(HYCOM)/libhycom.a $(HYCOM)/*.o

@@ -13,3 +13,5 @@ WORKLOG.md
 namelist.output
 
 run/
+
+*.nc
