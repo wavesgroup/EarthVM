@@ -1,7 +1,7 @@
 module earthvm_regrid
   use iso_fortran_env, only: stderr => error_unit
   use ESMF
-  use earthvm_assert, only: assert_success
+  use earthvm_assert, only: assert, assert_success
   use earthvm_esmf, only: get_grid
   use earthvm_state, only: earthvm_finalize
   implicit none
@@ -16,10 +16,6 @@ module earthvm_regrid
     procedure, pass(self), public :: regrid_field
     procedure, pass(self), public :: regrid_field_store
   end type earthvm_regrid_type
-
-  !interface earthvm_regrid_type
-  !  module procedure :: earthvm_regrid_constructor
-  !end interface earthvm_regrid_type
 
 contains
 
@@ -48,20 +44,14 @@ contains
     type(ESMF_Field), intent(in out) :: destination_field
     integer :: rc
 
-    if (.not. self % initialized) then
-      write(stderr, *) 'EarthVM Error: earthvm_regrid_type instance is not initialized.'
-      call earthvm_finalize()
-    end if
+    call assert(self % initialized, &
+      'EarthVM Error: earthvm_regrid_type instance is not initialized.')
 
-    if (self % source_grid /= get_grid(source_field)) then
-      write(stderr, *) 'EarthVM Error: Incompatible source_field in regrid_field.'
-      call earthvm_finalize()
-    end if
+    call assert(self % source_grid == get_grid(source_field), &
+      'EarthVM Error: Incompatible source_field in regrid_field.')
 
-    if (self % destination_grid /= get_grid(destination_field)) then
-      write(stderr, *) 'EarthVM Error: Incompatible destination_field in regrid_field.'
-      call earthvm_finalize()
-    end if
+    call assert(self % destination_grid == get_grid(destination_field), &
+      'EarthVM Error: Incompatible destination_field in regrid_field.')
 
     call ESMF_FieldRegrid(source_field, destination_field, self % weights, rc=rc)
     call assert_success(rc)

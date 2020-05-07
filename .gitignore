@@ -1,6 +1,7 @@
 *.o
 *.mod
 *.a
+*.b
 *.ESMF_LogFile
 
 esmf-8.0.0
@@ -11,7 +12,5 @@ src/main
 
 WORKLOG.md
 namelist.output
-
-run/
 
 *.nc

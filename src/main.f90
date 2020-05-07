@@ -9,6 +9,8 @@ program main
   use earthvm_wrf, only: set_wrf_services => set_services
   use earthvm_hycom, only: set_hycom_services => set_services
 
+  use mod_hycom, only: end_of_run
+
   implicit none
 
   type(earthvm_model_type) :: atmosphere_model, ocean_model
@@ -34,14 +36,28 @@ program main
 
   ocean_model = earthvm_model_type('hycom',               &
                                    datetime(2019, 8, 29), &
-                                   datetime(2019, 8, 30), &
-                                   120,                   &
+                                   datetime(2019, 8, 29, 1), &
+                                   60,                    &
                                    set_hycom_services)
 
-  call atmosphere_model % initialize()
+  !call atmosphere_model % initialize()
   call ocean_model % initialize()
-  call write_fields_to_netcdf([ocean_model % get_field('sst')], &
+  call write_fields_to_netcdf([ocean_model % get_field('sst'),   &
+                               ocean_model % get_field('u'),  &
+                               ocean_model % get_field('v')], &
                                'hycom_' // counter // '.nc')
+  n = 0
+  do
+    call ocean_model % run()
+    write(counter, '(i4.4)') n
+    n = n + 1
+    call write_fields_to_netcdf([ocean_model % get_field('sst'),   &
+                                 ocean_model % get_field('u'),  &
+                                 ocean_model % get_field('v')], &
+                                 'hycom_' // counter // '.nc')
+    if (end_of_run) exit
+  end do
+
   call earthvm_finalize()
   stop
 
