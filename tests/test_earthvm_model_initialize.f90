@@ -2,7 +2,7 @@ program test_earthvm_model_initialize
   use earthvm_state, only: earthvm_initialize, earthvm_get_mpicomm
   use earthvm_model, only: earthvm_model_type
   use earthvm_wrf, only: set_services
-  use earthvm_esmf, only: datetime
+  use earthvm_datetime, only: datetime
   implicit none
   type(earthvm_model_type) :: model
   call earthvm_initialize()

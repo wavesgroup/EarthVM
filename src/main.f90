@@ -3,7 +3,8 @@ program main
   use ESMF
   use earthvm_state, only: earthvm_initialize, earthvm_finalize, earthvm_get_pet_count, earthvm_get_local_pet
   use earthvm_model, only: earthvm_model_type
-  use earthvm_esmf, only: datetime, create_distgrid, create_grid, create_field
+  use earthvm_esmf, only: create_distgrid, create_grid, create_field
+  use earthvm_datetime, only: datetime
   use earthvm_regrid, only: earthvm_regrid_type
   use earthvm_io, only: write_grid_to_netcdf, write_fields_to_netcdf
   use earthvm_wrf, only: set_wrf_services => set_services
@@ -29,19 +30,20 @@ program main
   pet_count = earthvm_get_pet_count()
 
   atmosphere_model = earthvm_model_type('wrf',                      &
-                                         datetime(2019, 11, 11, 0), &
-                                         datetime(2019, 11, 11, 1), &
-                                         40,                        &
+                                         datetime(2019, 08, 29, 0), &
+                                         datetime(2019, 08, 29, 1), &
+                                         45,                        &
                                          set_wrf_services)
 
-  ocean_model = earthvm_model_type('hycom',               &
-                                   datetime(2019, 8, 29), &
+  ocean_model = earthvm_model_type('hycom',                  &
+                                   datetime(2019, 8, 29),    &
                                    datetime(2019, 8, 29, 1), &
-                                   60,                    &
+                                   60,                       &
                                    set_hycom_services)
 
-  !call atmosphere_model % initialize()
+  call atmosphere_model % initialize()
   call ocean_model % initialize()
+
   call write_fields_to_netcdf([ocean_model % get_field('sst'),   &
                                ocean_model % get_field('u'),  &
                                ocean_model % get_field('v')], &

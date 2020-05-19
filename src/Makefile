@@ -2,6 +2,7 @@ LIB = libearthvm.a
 
 OBJS = earthvm_assert.o \
        earthvm_esmf.o \
+       earthvm_datetime.o \
        earthvm_hycom.o \
        earthvm_io.o \
        earthvm_model.o \

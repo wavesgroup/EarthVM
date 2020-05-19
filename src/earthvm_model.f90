@@ -3,7 +3,7 @@ module earthvm_model
   use earthvm_assert, only: assert_success
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_pet_count, &
                            earthvm_get_vm
-  use earthvm_esmf, only: datetime
+  use earthvm_datetime, only: datetime
   implicit none
 
   private
@@ -51,23 +51,23 @@ contains
     call ESMF_TimeIntervalSet(timeinterval=self % time_step, s=time_step, rc=rc)
     call assert_success(rc)
 
-    CALL ESMF_TimeSet(time = self % start_time,   &
-                      yy   = start_time % year,   &
-                      mm   = start_time % month,  &
-                      dd   = start_time % day,    &
-                      h    = start_time % hour,   &
-                      m    = start_time % minute, &
-                      s    = start_time % second, &
+    CALL ESMF_TimeSet(time = self % start_time,        &
+                      yy   = start_time % getYear(),   &
+                      mm   = start_time % getMonth(),  &
+                      dd   = start_time % getDay(),    &
+                      h    = start_time % getHour(),   &
+                      m    = start_time % getMinute(), &
+                      s    = start_time % getSecond(), &
                       rc   = rc)
     call assert_success(rc)
 
-    CALL ESMF_TimeSet(time = self % stop_time,   &
-                      yy   = stop_time % year,   &
-                      mm   = stop_time % month,  &
-                      dd   = stop_time % day,    &
-                      h    = stop_time % hour,   &
-                      m    = stop_time % minute, &
-                      s    = stop_time % second, &
+    CALL ESMF_TimeSet(time = self % stop_time,        &
+                      yy   = stop_time % getYear(),   &
+                      mm   = stop_time % getMonth(),  &
+                      dd   = stop_time % getDay(),    &
+                      h    = stop_time % getHour(),   &
+                      m    = stop_time % getMinute(), &
+                      s    = stop_time % getSecond(), &
                       rc   = rc)
     call assert_success(rc)
 

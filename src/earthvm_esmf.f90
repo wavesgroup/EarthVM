@@ -4,12 +4,7 @@ module earthvm_esmf
   use earthvm_state, only: earthvm_get_vm, earthvm_get_local_pet, earthvm_get_pet_count
   implicit none
   private
-  public :: create_distgrid, create_grid, create_field, datetime, get_grid, &
-            set_field_values
-
-  type :: datetime
-    integer :: year, month, day, hour=0, minute=0, second=0
-  end type datetime
+  public :: create_distgrid, create_grid, create_field, get_grid, set_field_values
 
 contains
 

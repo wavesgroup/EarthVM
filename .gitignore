@@ -14,3 +14,6 @@ WORKLOG.md
 namelist.output
 
 *.nc
+
+run
+configs
