@@ -60,10 +60,10 @@ contains
 
     local_pet = earthvm_get_local_pet()
 
+    if (local_pet == 0) call set_hycom_time_limits(clock)
+
     call xcspmd(earthvm_get_mpicomm())
     call hycom_init()
-
-    if (local_pet == 0) call set_hycom_time_limits(clock)
 
     ! Map local HYCOM indices to global indices
     ids = 1
@@ -134,7 +134,7 @@ contains
     call set_field_values(field, real(u(1:ii,1:jj,1,2) + ubavg(1:ii,1:jj,2)))
 
     call ESMF_StateGet(export_state, 'v', field)
-    call set_field_values(field, real(u(1:ii,1:jj,1,2) + ubavg(1:ii,1:jj,2)))
+    call set_field_values(field, real(v(1:ii,1:jj,1,2) + vbavg(1:ii,1:jj,2)))
 
     call ESMF_StateGet(import_state, 'taux', field)
     call set_field_values(field, real(taux(1:ii,1:jj,1)))
