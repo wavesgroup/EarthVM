@@ -1,9 +1,11 @@
 module earthvm_model
   use ESMF !TODO , only: ...
   use earthvm_assert, only: assert_success
+  use earthvm_datetime, only: datetime
+  use earthvm_esmf, only: get_itemlist_from_state
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_pet_count, &
                            earthvm_get_vm
-  use earthvm_datetime, only: datetime
+  use earthvm_io, only: write_fields_to_netcdf
   implicit none
 
   private
@@ -16,15 +18,15 @@ module earthvm_model
     type(ESMF_Grid) :: grid
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
-    type(ESMF_Time) :: current_time, start_time, stop_time
-    type(ESMF_TimeInterval) :: time_step
-    type(ESMF_VM) :: vm
   contains
+    procedure, pass(self) :: finalize
+    procedure, pass(self) :: get_current_time
     procedure, pass(self) :: get_field
+    procedure, pass(self) :: get_field_data
     procedure, pass(self) :: initialize
     procedure, pass(self) :: run
-    procedure, pass(self) :: finalize
     procedure, pass(self) :: set_services
+    procedure, pass(self) :: write_to_netcdf
   end type earthvm_model_type
 
   interface earthvm_model_type
@@ -45,13 +47,15 @@ contains
         integer, intent(out) :: rc
       end subroutine user_services
     end interface
+    type(ESMF_Time) :: esmf_start_time, esmf_stop_time
+    type(ESMF_TimeInterval) :: esmf_time_step
     integer :: rc
     self % name = name
 
-    call ESMF_TimeIntervalSet(timeinterval=self % time_step, s=time_step, rc=rc)
+    call ESMF_TimeIntervalSet(timeinterval=esmf_time_step, s=time_step, rc=rc)
     call assert_success(rc)
 
-    CALL ESMF_TimeSet(time = self % start_time,        &
+    CALL ESMF_TimeSet(time = esmf_start_time,          &
                       yy   = start_time % getYear(),   &
                       mm   = start_time % getMonth(),  &
                       dd   = start_time % getDay(),    &
@@ -61,7 +65,7 @@ contains
                       rc   = rc)
     call assert_success(rc)
 
-    CALL ESMF_TimeSet(time = self % stop_time,        &
+    CALL ESMF_TimeSet(time = esmf_stop_time,          &
                       yy   = stop_time % getYear(),   &
                       mm   = stop_time % getMonth(),  &
                       dd   = stop_time % getDay(),    &
@@ -71,9 +75,9 @@ contains
                       rc   = rc)
     call assert_success(rc)
 
-    self % clock = ESMF_ClockCreate(timeStep = self % time_step,   &
-                                    startTime = self % start_time, &
-                                    stopTime  = self % stop_time,  &
+    self % clock = ESMF_ClockCreate(timeStep  = esmf_time_step,  &
+                                    startTime = esmf_start_time, &
+                                    stopTime  = esmf_stop_time,  &
                                     rc        = rc)
     call assert_success(rc)
 
@@ -83,12 +87,12 @@ contains
                                                    rc          = rc)
     call assert_success(rc)
 
-    self % import_state = ESMF_StateCreate(name        = self % name // 'import_state', &
+    self % import_state = ESMF_StateCreate(name        = self % name // '_import_state', &
                                            stateintent = ESMF_STATEINTENT_IMPORT,       &
                                            rc          = rc)
     call assert_success(rc)
 
-    self % export_state = ESMF_StateCreate(name        = self % name // 'export_state', &
+    self % export_state = ESMF_StateCreate(name        = self % name // '_export_state', &
                                            stateintent = ESMF_STATEINTENT_EXPORT,       &
                                            rc          = rc)
     call assert_success(rc)
@@ -100,6 +104,25 @@ contains
     call assert_success(rc)
 
   end function earthvm_model_constructor
+
+
+  type(datetime) function get_current_time(self) result(time)
+    ! Returns the current model time.
+    class(earthvm_model_type), intent(in) :: self
+    type(ESMF_Time) :: current_esmf_time
+    integer :: year, month, day, hour, minute, second
+    integer :: rc
+
+    call ESMF_ClockGet(self % clock, currTime=current_esmf_time, rc=rc)
+    call assert_success(rc)
+
+    call ESMF_TimeGet(current_esmf_time, yy=year, mm=month, dd=day, &
+                      h=hour, m=minute, s=second, rc=rc)
+    call assert_success(rc)
+
+    time = datetime(year, month, day, hour, minute, second)
+
+  end function get_current_time
 
 
   type(ESMF_Field) function get_field(self, field_name) result(field)
@@ -114,6 +137,18 @@ contains
       call assert_success(rc)
     end if
   end function get_field
+
+
+  subroutine get_field_data(self, field_name, field_data, lower_bounds, upper_bounds)
+    class(earthvm_model_type), intent(in) :: self
+    character(*), intent(in) :: field_name
+    real, pointer, intent(out) :: field_data(:,:)
+    integer, intent(out), optional :: lower_bounds(2), upper_bounds(2)
+    integer :: rc
+    call ESMF_FieldGet(self % get_field(field_name), farrayPtr=field_data, &
+                       exclusiveLBound=lower_bounds, exclusiveUBound=upper_bounds)
+    call assert_success(rc)
+  end subroutine get_field_data
 
 
   subroutine initialize(self)
@@ -135,6 +170,8 @@ contains
   subroutine run(self)
     class(earthvm_model_type), intent(in out) :: self
     integer :: rc
+
+    ! call the run user method
     call ESMF_GridCompRun(gridComp    = self % gridded_component, &
                           importState = self % import_state,      &
                           exportState = self % export_state,      &
@@ -143,6 +180,11 @@ contains
                           syncflag    = ESMF_SYNC_BLOCKING,       &
                           rc          = rc)
     call assert_success(rc)
+
+    ! tick the clock forward in time
+    call ESMF_ClockAdvance(self % clock, rc=rc)
+    call assert_success(rc)
+
     call ESMF_LogWrite('Model ' // self % name // ' ran', ESMF_LOGMSG_INFO)
     call ESMF_LogFlush()
   end subroutine run
@@ -179,5 +221,33 @@ contains
                                   rc          = rc)
     call assert_success(rc)
   end subroutine set_services
+
+
+  subroutine write_to_netcdf(self)
+    ! Writes all model fields into a NetCDF file.
+    class(earthvm_model_type), intent(in) :: self
+    type(ESMF_Field), allocatable :: fields(:)
+    type(datetime) :: current_time
+    character(ESMF_MAXSTR), allocatable :: field_names(:)
+    character(:), allocatable :: filename
+    integer :: n
+
+    fields = [ESMF_Field::]
+
+    field_names = get_itemlist_from_state(self % import_state)
+    do n = 1, size(field_names)
+      fields = [fields, self % get_field(trim(field_names(n)))]
+    end do
+
+    field_names = get_itemlist_from_state(self % export_state)
+    do n = 1, size(field_names)
+      fields = [fields, self % get_field(trim(field_names(n)))]
+    end do
+
+    current_time = self % get_current_time()
+    filename = self % name // '_' // current_time % strftime('%Y-%m-%d_%H:%M:%S') // '.nc'
+    call write_fields_to_netcdf(fields, filename)
+
+  end subroutine write_to_netcdf
 
 end module earthvm_model

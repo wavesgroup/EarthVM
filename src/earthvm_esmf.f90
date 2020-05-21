@@ -4,7 +4,8 @@ module earthvm_esmf
   use earthvm_state, only: earthvm_get_vm, earthvm_get_local_pet, earthvm_get_pet_count
   implicit none
   private
-  public :: create_distgrid, create_grid, create_field, get_grid, set_field_values
+  public :: create_distgrid, create_grid, create_field, get_grid, &
+            get_itemlist_from_state, set_field_values
 
 contains
 
@@ -149,12 +150,30 @@ contains
 
   end function create_grid
 
+
   type(ESMF_Grid) function get_grid(field) result(grid)
     type(ESMF_Field), intent(in) :: field
     integer :: rc
     call ESMF_FieldGet(field, grid=grid, rc=rc)
     call assert_success(rc)
   end function get_grid
+
+
+  function get_itemlist_from_state(state) result(itemlist)
+    ! Returns an array of names of items contained in a state.
+    type(ESMF_State), intent(in) :: state
+    character(ESMF_MAXSTR), allocatable :: itemlist(:)
+    integer :: itemcount, rc
+
+    call ESMF_StateGet(state, itemCount=itemcount, rc=rc)
+    call assert_success(rc)
+
+    allocate(itemlist(itemcount))
+
+    call ESMF_StateGet(state, itemNameList=itemlist, rc=rc)
+    call assert_success(rc)
+
+  end function get_itemlist_from_state
 
 
   subroutine set_field_values(field, field_values)

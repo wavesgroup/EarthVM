@@ -95,8 +95,6 @@ contains
     integer, intent(out) :: rc
 
     type(ESMF_Field) :: field
-    real(ESMF_KIND_R4), pointer :: field_data(:,:)
-    integer :: lb(2), ub(2)
     integer :: ids, ide, jds, jde, kds, kde
     integer :: ims, ime, jms, jme, kms, kme
     integer :: ips, ipe, jps, jpe, kps, kpe
@@ -122,13 +120,20 @@ contains
     call set_field_values(field, head_grid % u10(ips:ipe,jps:jpe))
 
     call ESMF_StateGet(export_state, 'v10', field)
-    call set_field_values(field, head_grid % u10(ips:ipe,jps:jpe))
-
-    call ESMF_ClockAdvance(clock, rc=rc)
-    call assert_success(rc)
+    call set_field_values(field, head_grid % v10(ips:ipe,jps:jpe))
 
     rc = ESMF_SUCCESS
   end subroutine model_run
+
+
+  subroutine model_finalize(gridded_component, import_state, export_state, clock, rc)
+    type(ESMF_GridComp) :: gridded_component
+    type(ESMF_State) :: import_state, export_state
+    type(ESMF_Clock) :: clock
+    integer, intent(out) :: rc
+    call wrf_finalize(no_shutdown=.true.)
+    rc = ESMF_SUCCESS
+  end subroutine model_finalize
 
 
   subroutine set_wrf_clock(clock)
@@ -154,15 +159,5 @@ contains
     head_grid % stop_subtime  = wrf_stop_time
 
   end subroutine set_wrf_clock
-
-
-  subroutine model_finalize(gridded_component, import_state, export_state, clock, rc)
-    type(ESMF_GridComp) :: gridded_component
-    type(ESMF_State) :: import_state, export_state
-    type(ESMF_Clock) :: clock
-    integer, intent(out) :: rc
-    call wrf_finalize(no_shutdown=.true.)
-    rc = ESMF_SUCCESS
-  end subroutine model_finalize
 
 end module earthvm_wrf

@@ -31,7 +31,7 @@ clean:
 earthvm_esmf.o: earthvm_assert.o earthvm_state.o
 earthvm_hycom.o: earthvm_assert.o earthvm_model.o earthvm_state.o earthvm_io.o
 earthvm_io.o: earthvm_assert.o earthvm_state.o
-earthvm_model.o: earthvm_assert.o earthvm_esmf.o earthvm_state.o
+earthvm_model.o: earthvm_assert.o earthvm_datetime.o earthvm_esmf.o earthvm_io.o earthvm_state.o
 earthvm_regrid.o: earthvm_assert.o
 earthvm_state.o: earthvm_assert.o
 earthvm_wrf.o: earthvm_assert.o earthvm_model.o earthvm_state.o earthvm_io.o
