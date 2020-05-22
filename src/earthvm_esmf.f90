@@ -5,7 +5,7 @@ module earthvm_esmf
   implicit none
   private
   public :: create_distgrid, create_grid, create_field, get_grid, &
-            get_itemlist_from_state, set_field_values
+            get_field_values, get_itemlist_from_state, set_field_values
 
 contains
 
@@ -174,6 +174,17 @@ contains
     call assert_success(rc)
 
   end function get_itemlist_from_state
+
+
+  subroutine get_field_values(field, field_values, lower_bounds, upper_bounds)
+    type(ESMF_Field), intent(in) :: field
+    real, pointer, intent(out) :: field_values(:,:)
+    integer, intent(out), optional :: lower_bounds(2), upper_bounds(2)
+    integer :: rc
+    call ESMF_FieldGet(field, farrayPtr=field_values, &
+                       exclusiveLBound=lower_bounds, exclusiveUBound=upper_bounds)
+    call assert_success(rc)
+  end subroutine get_field_values
 
 
   subroutine set_field_values(field, field_values)

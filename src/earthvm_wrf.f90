@@ -110,11 +110,14 @@ contains
     ipe = min(ide, ipe)
     jpe = min(jde, jpe)
 
+    !call ESMF_StateGet(import_state, 'sst', field)
+    !call ESMF_FieldGet(field, farrayPtr=field_data_pointer, &
+    !                   exclusiveLBound=lb, exclusiveUBound=ub, rc=rc)
+    !call assert_success(rc)
+    !field_data_pointer(lb(1):ub(1),lb(2):ub(2)) = field_values(:,:)
+
     call set_wrf_clock(clock)
     call wrf_run()
-
-    call ESMF_StateGet(import_state, 'sst', field)
-    call set_field_values(field, head_grid % tsk(ips:ipe,jps:jpe))
 
     call ESMF_StateGet(export_state, 'u10', field)
     call set_field_values(field, head_grid % u10(ips:ipe,jps:jpe))
