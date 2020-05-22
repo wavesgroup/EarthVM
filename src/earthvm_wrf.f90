@@ -2,7 +2,8 @@ module earthvm_wrf
 
   use ESMF !TODO , only: ...
   use earthvm_assert, only: assert_success
-  use earthvm_esmf, only: create_distgrid, create_grid, create_field, set_field_values
+  use earthvm_esmf, only: create_distgrid, create_grid, create_field, &
+                          get_field_values, set_field_values
   use earthvm_io, only: write_grid_to_netcdf
   use earthvm_state, only: earthvm_get_mpicomm
   use module_wrf_top, only: get_ijk_from_grid, head_grid, &
@@ -98,6 +99,10 @@ contains
     integer :: ids, ide, jds, jde, kds, kde
     integer :: ims, ime, jms, jme, kms, kme
     integer :: ips, ipe, jps, jpe, kps, kpe
+    integer :: i, j
+
+    real, pointer :: field_values(:,:)
+    integer :: lb(2), ub(2)
 
     call get_ijk_from_grid(head_grid, &
                            ids, ide, jds, jde, kds, kde, &
@@ -110,11 +115,12 @@ contains
     ipe = min(ide, ipe)
     jpe = min(jde, jpe)
 
-    !call ESMF_StateGet(import_state, 'sst', field)
-    !call ESMF_FieldGet(field, farrayPtr=field_data_pointer, &
-    !                   exclusiveLBound=lb, exclusiveUBound=ub, rc=rc)
-    !call assert_success(rc)
-    !field_data_pointer(lb(1):ub(1),lb(2):ub(2)) = field_values(:,:)
+    ! copy values from ESMF field to the WRF data structure
+    call ESMF_StateGet(import_state, 'sst', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
+      head_grid % tsk(i,j) = field_values(i,j) + 273.15
+    end do
 
     call set_wrf_clock(clock)
     call wrf_run()

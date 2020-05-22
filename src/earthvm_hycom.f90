@@ -86,7 +86,7 @@ contains
     lon(ips:ipe,jps:jpe) = plon(1:ii,1:jj)
     lat(ips:ipe,jps:jpe) = plat(1:ii,1:jj)
 
-    do concurrent (i=ips:ipe, j=jps:jpe, depths(i-ips+1,j-jps+1) == 0)
+    do concurrent (i=ips:ipe, j=jps:jpe, depths(i-ips+1,j-jps+1) > 0)
       mask(i,j) = 1
     end do
 

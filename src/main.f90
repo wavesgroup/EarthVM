@@ -3,9 +3,7 @@ program main
   use ESMF
   use earthvm_datetime, only: datetime, timedelta
   use earthvm_hycom, only: set_hycom_services => set_services
-  use earthvm_io, only: write_grid_to_netcdf, write_fields_to_netcdf
   use earthvm_model, only: earthvm_model_type
-  use earthvm_regrid, only: earthvm_regrid_type
   use earthvm_state, only: earthvm_initialize, earthvm_finalize, &
                            earthvm_get_local_pet
   use earthvm_wrf, only: set_wrf_services => set_services
@@ -32,6 +30,7 @@ program main
 
   call atmosphere_model % initialize()
   call ocean_model % initialize()
+  call ocean_model % force(atmosphere_model)
 
   time = start_time
   do
@@ -48,6 +47,7 @@ program main
       if (local_pet == 0) print *, 'running ocean'
       call ocean_model % run()
       call ocean_model % write_to_netcdf()
+      call ocean_model % force(atmosphere_model)
     end if
 
     ! print and advance master clock

@@ -177,6 +177,8 @@ contains
 
 
   subroutine get_field_values(field, field_values, lower_bounds, upper_bounds)
+    ! Returns the pointer to field values and lower and upper bounds,
+    ! given input field.
     type(ESMF_Field), intent(in) :: field
     real, pointer, intent(out) :: field_values(:,:)
     integer, intent(out), optional :: lower_bounds(2), upper_bounds(2)

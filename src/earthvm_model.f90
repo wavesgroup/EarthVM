@@ -3,9 +3,10 @@ module earthvm_model
   use earthvm_assert, only: assert_success
   use earthvm_datetime, only: datetime
   use earthvm_esmf, only: get_itemlist_from_state
+  use earthvm_io, only: write_fields_to_netcdf
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_pet_count, &
                            earthvm_get_vm
-  use earthvm_io, only: write_fields_to_netcdf
+  use earthvm_regrid, only: earthvm_regrid_type
   implicit none
 
   private
@@ -13,13 +14,13 @@ module earthvm_model
 
   type :: earthvm_model_type
     character(:), allocatable :: name
-    type(ESMF_Clock) :: clock
-    type(ESMF_DistGrid) :: distgrid
-    type(ESMF_Grid) :: grid
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
+    type(ESMF_Clock) :: clock
+    type(earthvm_regrid_type) :: regrid
   contains
     procedure, pass(self) :: finalize
+    procedure, pass(self) :: force
     procedure, pass(self) :: get_current_time
     procedure, pass(self) :: get_field
     procedure, pass(self) :: get_field_data
@@ -104,6 +105,31 @@ contains
     call assert_success(rc)
 
   end function earthvm_model_constructor
+
+
+  subroutine force(self, target_model)
+    ! Regrids the export fields from this model to the target model.
+    ! This affects only ESMF fields involved.
+    ! To force the target model in effect, the regridded values must be copied
+    ! to the native model data structure.
+    class(earthvm_model_type), intent(in out) :: self, target_model
+    type(ESMF_Field) :: source_field, destination_field
+
+    print *, 'regrid ' // self % name // ' -> ' // target_model % name
+
+    !TODO generalize list of fields to regrid
+    source_field = self % get_field('sst')
+    destination_field = target_model % get_field('sst')
+
+    if (.not. self % regrid % initialized) then
+      call self % regrid % regrid_field_store(source_field, destination_field)
+    end if
+
+    call self % regrid % regrid_field(source_field, destination_field)
+
+    print *, 'regrid ' // self % name // ' -> ' // target_model % name // ' done.'
+
+  end subroutine force
 
 
   type(datetime) function get_current_time(self) result(time)

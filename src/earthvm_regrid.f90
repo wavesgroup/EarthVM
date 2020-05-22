@@ -26,8 +26,16 @@ contains
     type(ESMF_RouteHandle) :: weights
     integer :: rc
 
-    call ESMF_FieldRegridStore(source_field, destination_field, &
-                               routehandle=weights, rc=rc)
+    !TODO generalize masks
+    !TODO generalize extrapolation method
+    !TODO generalize regrid method
+    call ESMF_FieldRegridStore(source_field, destination_field,              &
+                               srcMaskValues=[0],                            &
+                               dstMaskValues=[0],                            &
+                               extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_IDAVG, &
+                               unmappedAction=ESMF_UNMAPPEDACTION_IGNORE,    &
+                               routehandle=weights,                          &
+                               rc=rc)
     call assert_success(rc)
 
     self % weights = weights
