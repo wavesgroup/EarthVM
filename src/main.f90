@@ -1,6 +1,5 @@
 program main
 
-  use ESMF
   use earthvm_datetime, only: datetime, timedelta
   use earthvm_hycom, only: set_hycom_services => set_services
   use earthvm_model, only: earthvm_model_type
@@ -13,9 +12,6 @@ program main
   type(earthvm_model_type) :: atmosphere_model, ocean_model
   type(datetime) :: start_time, stop_time, time
   integer :: local_pet
-
-  real, pointer :: field_data(:,:)
-  integer :: ub(2), lb(2)
 
   start_time = datetime(2019, 8, 29)
   stop_time = datetime(2019, 8, 29, 1)
@@ -37,21 +33,22 @@ program main
 
     ! run atmosphere for one time step
     if (atmosphere_model % get_current_time() <= time) then
-      if (local_pet == 0) print *, 'running atmosphere'
+      if (local_pet == 0) print *, &
+        time % strftime('%Y-%m-%d %H:%M:%S'), ': Running atmosphere model'
       call atmosphere_model % run()
       call atmosphere_model % write_to_netcdf()
     end if
 
     ! run ocean for one time step
     if (ocean_model % get_current_time() <= time) then
-      if (local_pet == 0) print *, 'running ocean'
+      if (local_pet == 0) print *, &
+        time % strftime('%Y-%m-%d %H:%M:%S'), ': Running ocean model'
       call ocean_model % run()
       call ocean_model % write_to_netcdf()
       call ocean_model % force(atmosphere_model)
     end if
 
-    ! print and advance master clock
-    if (local_pet == 0) print *, time % strftime('%Y-%m-%d %H:%M:%S')
+    ! advance master clock
     time = time + timedelta(seconds=1)
     if (time > stop_time) exit
 
