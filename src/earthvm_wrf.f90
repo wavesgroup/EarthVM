@@ -79,9 +79,32 @@ contains
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
 
-    fields = [create_field(grid, 'u10'), create_field(grid, 'v10')]
+    fields = [                    &
+      create_field(grid, 'u10'),  &
+      create_field(grid, 'v10'),  &
+      create_field(grid, 'psfc'), &
+      create_field(grid, 'taux'), &
+      create_field(grid, 'tauy')  &
+      ]
+
     call set_field_values(fields(1), head_grid % u10(ips:ipe,jps:jpe))
     call set_field_values(fields(2), head_grid % v10(ips:ipe,jps:jpe))
+    call set_field_values(fields(3), head_grid % psfc(ips:ipe,jps:jpe))
+
+    block
+      real :: wspd(ips:ipe,jps:jpe)
+      real :: taux(ips:ipe,jps:jpe)
+      real :: tauy(ips:ipe,jps:jpe)
+      wspd = sqrt(head_grid % u10(ips:ipe,jps:jpe)**2 &
+                + head_grid % v10(ips:ipe,jps:jpe)**2)
+      taux = head_grid % ust(ips:ipe,jps:jpe)**2 * head_grid % u10(ips:ipe,jps:jpe) &
+           / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
+      tauy = head_grid % ust(ips:ipe,jps:jpe)**2 * head_grid % v10(ips:ipe,jps:jpe) &
+           / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
+      call set_field_values(fields(4), taux)
+      call set_field_values(fields(5), tauy)
+    end block
+
     call ESMF_StateAdd(export_state, fields, rc=rc)
     call assert_success(rc)
 
@@ -130,6 +153,28 @@ contains
 
     call ESMF_StateGet(export_state, 'v10', field)
     call set_field_values(field, head_grid % v10(ips:ipe,jps:jpe))
+
+    call ESMF_StateGet(export_state, 'psfc', field)
+    call set_field_values(field, head_grid % psfc(ips:ipe,jps:jpe))
+
+    block
+      real :: wspd(ips:ipe,jps:jpe)
+      real :: taux(ips:ipe,jps:jpe)
+      real :: tauy(ips:ipe,jps:jpe)
+      wspd = sqrt(head_grid % u10(ips:ipe,jps:jpe)**2 &
+                + head_grid % v10(ips:ipe,jps:jpe)**2)
+      taux = head_grid % ust(ips:ipe,jps:jpe)**2 * head_grid % u10(ips:ipe,jps:jpe) &
+           / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
+      tauy = head_grid % ust(ips:ipe,jps:jpe)**2 * head_grid % v10(ips:ipe,jps:jpe) &
+           / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
+
+      call ESMF_StateGet(export_state, 'taux', field)
+      call set_field_values(field, taux)
+
+      call ESMF_StateGet(export_state, 'tauy', field)
+      call set_field_values(field, tauy)
+
+    end block
 
     rc = ESMF_SUCCESS
   end subroutine model_run
