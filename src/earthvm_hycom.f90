@@ -8,7 +8,7 @@ module earthvm_hycom
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_mpicomm
 
   use mod_cb_arrays, only: plon, plat, depths, temp, taux, tauy, &
-                           u, v, ubavg, vbavg
+                           u, v, ubavg, vbavg, srfhgt, sshgmn
   use mod_dimensions, only: itdm, jtdm, i0, j0, ii, jj
   use mod_hycom, only: hycom_init, hycom_run, hycom_final, end_of_run
   use mod_xc, only: xcspmd
@@ -95,19 +95,24 @@ contains
     call write_grid_to_netcdf(grid, 'hycom_grid.nc')
 
     fields = [                   &
-      create_field(grid, 'sst'), &
       create_field(grid, 'u'),   &
-      create_field(grid, 'v')    &
+      create_field(grid, 'v'),   &
+      create_field(grid, 'ssh'), &
+      create_field(grid, 'sst')  &
     ]
 
-    call set_field_values(fields(1), real(temp(1:ii,1:jj,1,1)))
-    call set_field_values(fields(2), real(u(1:ii,1:jj,1,1) + ubavg(1:ii,1:jj,1)))
-    call set_field_values(fields(3), real(v(1:ii,1:jj,1,1) + vbavg(1:ii,1:jj,1)))
+    call set_field_values(fields(1), real(u(1:ii,1:jj,1,1) + ubavg(1:ii,1:jj,1)))
+    call set_field_values(fields(2), real(v(1:ii,1:jj,1,1) + vbavg(1:ii,1:jj,1)))
+    call set_field_values(fields(3), real(srfhgt(1:ii,1:jj)) / 9.8)
+    call set_field_values(fields(4), real(temp(1:ii,1:jj,1,1)))
 
     call ESMF_StateAdd(export_state, fields, rc=rc)
     call assert_success(rc)
 
-    fields = [create_field(grid, 'taux'), create_field(grid, 'tauy')]
+    fields = [                    &
+      create_field(grid, 'taux'), &
+      create_field(grid, 'tauy')  &
+    ]
     call set_field_values(fields(1), real(taux(1:ii,1:jj,1)))
     call set_field_values(fields(2), real(tauy(1:ii,1:jj,1)))
     call ESMF_StateAdd(import_state, fields, rc=rc)
@@ -126,6 +131,9 @@ contains
     type(ESMF_Field) :: field
 
     call hycom_run()
+
+    call ESMF_StateGet(export_state, 'ssh', field)
+    call set_field_values(field, real(srfhgt(1:ii,1:jj)) / 9.8)
 
     call ESMF_StateGet(export_state, 'sst', field)
     call set_field_values(field, real(temp(1:ii,1:jj,1,2)))
