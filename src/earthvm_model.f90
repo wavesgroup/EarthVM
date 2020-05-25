@@ -115,8 +115,6 @@ contains
     class(earthvm_model_type), intent(in out) :: self, target_model
     type(ESMF_Field) :: source_field, destination_field
 
-    print *, 'regrid ' // self % name // ' -> ' // target_model % name
-
     !TODO generalize list of fields to regrid
     source_field = self % get_field('sst')
     destination_field = target_model % get_field('sst')
@@ -126,8 +124,6 @@ contains
     end if
 
     call self % regrid % regrid_field(source_field, destination_field)
-
-    print *, 'regrid ' // self % name // ' -> ' // target_model % name // ' done.'
 
   end subroutine force
 
