@@ -3,10 +3,12 @@ module earthvm_model
   use earthvm_assert, only: assert_success
   use earthvm_datetime, only: datetime
   use earthvm_esmf, only: get_itemlist_from_state
+  use earthvm_events
   use earthvm_io, only: write_fields_to_netcdf
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_pet_count, &
                            earthvm_get_vm
   use earthvm_regrid, only: earthvm_regrid_type
+  use earthvm_string, only: string
   implicit none
 
   private
@@ -18,9 +20,11 @@ module earthvm_model
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
     type(earthvm_regrid_type) :: regrid
+    type(string), allocatable :: import_field_names(:), export_field_names(:)
   contains
     procedure, pass(self) :: finalize
     procedure, pass(self) :: force
+    procedure, pass(self) :: force_single_field
     procedure, pass(self) :: get_current_time
     procedure, pass(self) :: get_field
     procedure, pass(self) :: get_field_data
@@ -113,11 +117,29 @@ contains
     ! To force the target model in effect, the regridded values must be copied
     ! to the native model data structure.
     class(earthvm_model_type), intent(in out) :: self, target_model
+
+    if (self % name == 'hycom' .and. target_model % name == 'wrf') then
+      call self % force_single_field(target_model, 'sst')
+      !TODO post event sst_updated
+    end if
+
+    if (self % name == 'wrf' .and. target_model % name == 'hycom') then
+      call self % force_single_field(target_model, 'taux')
+      call self % force_single_field(target_model, 'tauy')
+      !TODO post events taux_updated and tauy_updated
+    end if
+
+  end subroutine force
+
+
+  subroutine force_single_field(self, target_model, field_name)
+    ! Regrids a single field from this to target model.
+    class(earthvm_model_type), intent(in out) :: self, target_model
+    character(*), intent(in) :: field_name
     type(ESMF_Field) :: source_field, destination_field
 
-    !TODO generalize list of fields to regrid
-    source_field = self % get_field('sst')
-    destination_field = target_model % get_field('sst')
+    source_field = self % get_field(field_name)
+    destination_field = target_model % get_field(field_name)
 
     if (.not. self % regrid % initialized) then
       call self % regrid % regrid_field_store(source_field, destination_field)
@@ -125,7 +147,7 @@ contains
 
     call self % regrid % regrid_field(source_field, destination_field)
 
-  end subroutine force
+  end subroutine force_single_field
 
 
   type(datetime) function get_current_time(self) result(time)

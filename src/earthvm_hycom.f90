@@ -2,13 +2,15 @@ module earthvm_hycom
 
   use ESMF !TODO , only: ...
   use earthvm_assert, only: assert_success
-  use earthvm_esmf, only: create_distgrid, create_grid, create_field, set_field_values
+  use earthvm_esmf, only: create_distgrid, create_grid, create_field, &
+                          get_field_values, set_field_values
+  use earthvm_events
   use earthvm_io, only: write_grid_to_netcdf
-  use earthvm_model, only: earthvm_model_type
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_mpicomm
 
   use mod_cb_arrays, only: plon, plat, depths, temp, taux, tauy, &
-                           u, v, ubavg, vbavg, srfhgt, sshgmn
+                           u, v, ubavg, vbavg, srfhgt, sshgmn, &
+                           w0, w1, w2, w3
   use mod_dimensions, only: itdm, jtdm, i0, j0, ii, jj
   use mod_hycom, only: hycom_init, hycom_run, hycom_final, end_of_run
   use mod_xc, only: xcspmd
@@ -64,6 +66,10 @@ contains
 
     call xcspmd(earthvm_get_mpicomm())
     call hycom_init()
+
+    ! set forcing weights--always use the values from the first index
+    w0 = 1
+    w1 = 0
 
     ! Map local HYCOM indices to global indices
     ids = 1
@@ -130,6 +136,19 @@ contains
 
     type(ESMF_Field) :: field
 
+    integer :: i, j
+    real, pointer :: field_values(:,:)
+    integer :: lb(2), ub(2)
+
+    ! copy values from ESMF field to the WRF data structure
+    call ESMF_StateGet(import_state, 'taux', field)
+    call get_field_values(field, field_values, lb, ub)
+    taux(1:ii,j:ii,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+
+    call ESMF_StateGet(import_state, 'tauy', field)
+    call get_field_values(field, field_values, lb, ub)
+    tauy(1:ii,j:ii,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+
     call hycom_run()
 
     call ESMF_StateGet(export_state, 'ssh', field)
@@ -143,12 +162,6 @@ contains
 
     call ESMF_StateGet(export_state, 'v', field)
     call set_field_values(field, real(v(1:ii,1:jj,1,2) + vbavg(1:ii,1:jj,2)))
-
-    call ESMF_StateGet(import_state, 'taux', field)
-    call set_field_values(field, real(taux(1:ii,1:jj,1)))
-
-    call ESMF_StateGet(import_state, 'tauy', field)
-    call set_field_values(field, real(tauy(1:ii,1:jj,1)))
 
     rc = ESMF_SUCCESS
   end subroutine model_run
