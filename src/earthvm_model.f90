@@ -126,6 +126,8 @@ contains
     if (self % name == 'wrf' .and. target_model % name == 'hycom') then
       call self % force_single_field(target_model, 'taux')
       call self % force_single_field(target_model, 'tauy')
+      call self % force_single_field(target_model, 'rainrate')
+      call self % force_single_field(target_model, 'swflux')
       !TODO post events taux_updated and tauy_updated
     end if
 

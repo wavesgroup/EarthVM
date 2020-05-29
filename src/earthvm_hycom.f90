@@ -115,12 +115,12 @@ contains
     call ESMF_StateAdd(export_state, fields, rc=rc)
     call assert_success(rc)
 
-    fields = [                    &
-      create_field(grid, 'taux'), &
-      create_field(grid, 'tauy')  &
+    fields = [                        &
+      create_field(grid, 'taux'),     &
+      create_field(grid, 'tauy'),     &
+      create_field(grid, 'rainrate'), &
+      create_field(grid, 'swflux')    &
     ]
-    call set_field_values(fields(1), real(taux(1:ii,1:jj,1)))
-    call set_field_values(fields(2), real(tauy(1:ii,1:jj,1)))
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
 
@@ -136,32 +136,17 @@ contains
 
     type(ESMF_Field) :: field
 
-    integer :: i, j
-    real, pointer :: field_values(:,:)
-    integer :: lb(2), ub(2)
-
-    ! copy values from ESMF field to the WRF data structure
-    call ESMF_StateGet(import_state, 'taux', field)
-    call get_field_values(field, field_values, lb, ub)
-    taux(1:ii,j:ii,1) = field_values(lb(1):ub(1),lb(2):ub(2))
-
-    call ESMF_StateGet(import_state, 'tauy', field)
-    call get_field_values(field, field_values, lb, ub)
-    tauy(1:ii,j:ii,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+    call import_taux(import_state)
+    call import_tauy(import_state)
+    call import_precip(import_state)
+    call import_swflux(import_state)
 
     call hycom_run()
 
-    call ESMF_StateGet(export_state, 'ssh', field)
-    call set_field_values(field, real(srfhgt(1:ii,1:jj)) / 9.8)
-
-    call ESMF_StateGet(export_state, 'sst', field)
-    call set_field_values(field, real(temp(1:ii,1:jj,1,2)))
-
-    call ESMF_StateGet(export_state, 'u', field)
-    call set_field_values(field, real(u(1:ii,1:jj,1,2) + ubavg(1:ii,1:jj,2)))
-
-    call ESMF_StateGet(export_state, 'v', field)
-    call set_field_values(field, real(v(1:ii,1:jj,1,2) + vbavg(1:ii,1:jj,2)))
+    call export_ssh(export_state)
+    call export_sst(export_state)
+    call export_u(export_state)
+    call export_v(export_state)
 
     rc = ESMF_SUCCESS
   end subroutine model_run
@@ -201,5 +186,106 @@ contains
     close(u)
 
   end subroutine set_hycom_time_limits
+
+
+  subroutine import_taux(state)
+    ! Updates the eastward component of surface stress in HYCOM.
+    use mod_cb_arrays, only: taux
+    use mod_dimensions, only: ii, jj
+    type(ESMF_State), intent(in) :: state
+    type(ESMF_Field) :: field
+    integer :: lb(2), ub(2)
+    real, pointer :: field_values(:,:)
+    call ESMF_StateGet(state, 'taux', field)
+    call get_field_values(field, field_values, lb, ub)
+    taux(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+  end subroutine import_taux
+
+
+  subroutine import_tauy(state)
+    ! Updates the northward component of surface stress in HYCOM.
+    use mod_cb_arrays, only: tauy
+    use mod_dimensions, only: ii, jj
+    type(ESMF_State), intent(in) :: state
+    type(ESMF_Field) :: field
+    integer :: lb(2), ub(2)
+    real, pointer :: field_values(:,:)
+    call ESMF_StateGet(state, 'tauy', field)
+    call get_field_values(field, field_values, lb, ub)
+    tauy(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+  end subroutine import_tauy
+
+
+  subroutine import_precip(state)
+    ! Updates the precipitation [m/s] field in HYCOM.
+    use mod_cb_arrays, only: precip
+    use mod_dimensions, only: ii, jj
+    type(ESMF_State), intent(in) :: state
+    type(ESMF_Field) :: field
+    integer :: lb(2), ub(2)
+    real, pointer :: field_values(:,:)
+    call ESMF_StateGet(state, 'rainrate', field)
+    call get_field_values(field, field_values, lb, ub)
+    precip(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+  end subroutine import_precip
+
+
+  subroutine import_swflux(state)
+    ! Updates the shortwave radiative flux (positive downward) in HYCOM.
+    use mod_cb_arrays, only: swflx
+    use mod_dimensions, only: ii, jj
+    type(ESMF_State), intent(in) :: state
+    type(ESMF_Field) :: field
+    integer :: lb(2), ub(2)
+    real, pointer :: field_values(:,:)
+    call ESMF_StateGet(state, 'swflux', field)
+    call get_field_values(field, field_values, lb, ub)
+    swflx(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+  end subroutine import_swflux
+
+
+  subroutine export_ssh(state)
+    ! Exports the sea surface height from HYCOM.
+    use mod_cb_arrays, only: srfhgt
+    use mod_dimensions, only: ii, jj
+    type(ESMF_State), intent(in out) :: state
+    type(ESMF_Field) :: field
+    call ESMF_StateGet(state, 'ssh', field)
+    call set_field_values(field, real(srfhgt(1:ii,1:jj)) / 9.8)
+  end subroutine export_ssh
+
+
+  subroutine export_sst(state)
+    ! Exports the sea surface temperature from HYCOM.
+    use mod_cb_arrays, only: temp
+    use mod_dimensions, only: ii, jj
+    type(ESMF_State), intent(in out) :: state
+    type(ESMF_Field) :: field
+    call ESMF_StateGet(state, 'sst', field)
+    call set_field_values(field, real(temp(1:ii,1:jj,1,2)))
+  end subroutine export_sst
+
+
+  subroutine export_u(state)
+    ! Exports the eastward component of surface current from HYCOM.
+    use mod_cb_arrays, only: u, ubavg
+    use mod_dimensions, only: ii, jj
+    type(ESMF_State), intent(in out) :: state
+    type(ESMF_Field) :: field
+    call ESMF_StateGet(state, 'u', field)
+    call set_field_values(field, real(u(1:ii,1:jj,1,2) + ubavg(1:ii,1:jj,2)))
+  end subroutine export_u
+
+
+  subroutine export_v(state)
+    ! Exports the northward component of surface current from HYCOM.
+    use mod_cb_arrays, only: v, vbavg
+    use mod_dimensions, only: ii, jj
+    type(ESMF_State), intent(in out) :: state
+    type(ESMF_Field) :: field
+    call ESMF_StateGet(state, 'v', field)
+    call set_field_values(field, real(v(1:ii,1:jj,1,2) + vbavg(1:ii,1:jj,2)))
+  end subroutine export_v
+
 
 end module earthvm_hycom

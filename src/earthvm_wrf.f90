@@ -80,12 +80,14 @@ contains
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
 
-    fields = [                    &
-      create_field(grid, 'u10'),  &
-      create_field(grid, 'v10'),  &
-      create_field(grid, 'psfc'), &
-      create_field(grid, 'taux'), &
-      create_field(grid, 'tauy')  &
+    fields = [                        &
+      create_field(grid, 'u10'),      &
+      create_field(grid, 'v10'),      &
+      create_field(grid, 'psfc'),     &
+      create_field(grid, 'taux'),     &
+      create_field(grid, 'tauy'),     &
+      create_field(grid, 'rainrate'), &
+      create_field(grid, 'swflux')    &
       ]
 
     call set_field_values(fields(1), head_grid % u10(ips:ipe,jps:jpe))
@@ -104,6 +106,22 @@ contains
            / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
       call set_field_values(fields(4), taux)
       call set_field_values(fields(5), tauy)
+    end block
+
+    block
+      real :: rainrate(ips:ipe,jps:jpe)
+      rainrate = (head_grid % raincv(ips:ipe,jps:jpe)   & ! from cumulus param.
+                + head_grid % rainncv(ips:ipe,jps:jpe)) & ! explicit
+                / head_grid % time_step                 & ! mm / time_step -> mm / s
+                * 1d-3                                    ! mm / s -> m / s
+      call set_field_values(fields(6), rainrate)
+    end block
+
+    block
+      real :: swflux(ips:ipe,jps:jpe)
+      swflux = head_grid % swdown(ips:ipe,jps:jpe) &
+             * (1 - head_grid % albedo(ips:ipe,jps:jpe))
+      call set_field_values(fields(7), swflux)
     end block
 
     call ESMF_StateAdd(export_state, fields, rc=rc)
@@ -175,6 +193,24 @@ contains
       call ESMF_StateGet(export_state, 'tauy', field)
       call set_field_values(field, tauy)
 
+    end block
+
+    block
+      real :: rainrate(ips:ipe,jps:jpe)
+      rainrate = (head_grid % raincv(ips:ipe,jps:jpe)   & ! from cumulus param.
+                + head_grid % rainncv(ips:ipe,jps:jpe)) & ! explicit
+                / head_grid % time_step                 & ! mm / time_step -> mm / s
+                * 1d-3                                    ! mm / s -> m / s
+      call ESMF_StateGet(export_state, 'rainrate', field)
+      call set_field_values(field, rainrate)
+    end block
+
+    block
+      real :: swflux(ips:ipe,jps:jpe)
+      swflux = head_grid % swdown(ips:ipe,jps:jpe) &
+             * (1 - head_grid % albedo(ips:ipe,jps:jpe))
+      call ESMF_StateGet(export_state, 'swflux', field)
+      call set_field_values(field, swflux)
     end block
 
     rc = ESMF_SUCCESS
