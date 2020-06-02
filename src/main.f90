@@ -14,7 +14,7 @@ program main
   integer :: local_pet
 
   start_time = datetime(2019, 8, 29)
-  stop_time = datetime(2019, 8, 29, 1)
+  stop_time = datetime(2019, 9, 7)
 
   call earthvm_initialize()
   local_pet = earthvm_get_local_pet()
@@ -32,7 +32,7 @@ program main
   do
 
     ! run atmosphere for one time step
-    if (atmosphere % get_current_time() <= time) then
+    if (atmosphere % get_current_time() < time) then
       if (local_pet == 0) print *, &
         time % strftime('%Y-%m-%d %H:%M:%S'), ': Running atmosphere'
       call atmosphere % run()
@@ -41,7 +41,7 @@ program main
     end if
 
     ! run ocean for one time step
-    if (ocean % get_current_time() <= time) then
+    if (ocean % get_current_time() < time) then
       if (local_pet == 0) print *, &
         time % strftime('%Y-%m-%d %H:%M:%S'), ': Running ocean'
       call ocean % run()
