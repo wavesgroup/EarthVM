@@ -212,12 +212,16 @@ contains
 
     end block
 
+    !TODO force ustara in HYCOM based on taux and tauy
+
     block
+      ! precipitation minus evaporation
       real :: rainrate(ips:ipe,jps:jpe)
-      rainrate = (head_grid % raincv(ips:ipe,jps:jpe)   & ! from cumulus param.
-                + head_grid % rainncv(ips:ipe,jps:jpe)) & ! explicit
-                / head_grid % time_step                 & ! mm / time_step -> mm / s
-                * 1d-3                                    ! mm / s -> m / s
+      rainrate = ((head_grid % raincv(ips:ipe,jps:jpe)   & ! from cumulus param.
+                 + head_grid % rainncv(ips:ipe,jps:jpe)) & ! explicit
+                 / head_grid % time_step                 & ! mm / time_step -> mm / s
+                 - head_grid % qfx(ips:ipe,jps:jpe))     &
+                 * 1d-3                                    ! mm / s -> m / s
       call ESMF_StateGet(export_state, 'rainrate', field)
       call set_field_values(field, rainrate)
     end block
