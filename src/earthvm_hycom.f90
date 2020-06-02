@@ -8,7 +8,7 @@ module earthvm_hycom
   use earthvm_io, only: write_grid_to_netcdf
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_mpicomm
 
-  use mod_cb_arrays, only: plon, plat, depths, temp, taux, tauy, &
+  use mod_cb_arrays, only: plon, plat, depths, temp, taux, tauy, saln, &
                            u, v, ubavg, vbavg, srfhgt, sshgmn, &
                            w0, w1, w2, w3
   use mod_dimensions, only: itdm, jtdm, i0, j0, ii, jj
@@ -104,6 +104,7 @@ contains
       create_field(grid, 'u'),   &
       create_field(grid, 'v'),   &
       create_field(grid, 'ssh'), &
+      create_field(grid, 'sss'), &
       create_field(grid, 'sst')  &
     ]
 
@@ -111,6 +112,7 @@ contains
     call set_field_values(fields(2), real(v(1:ii,1:jj,1,1) + vbavg(1:ii,1:jj,1)))
     call set_field_values(fields(3), real(srfhgt(1:ii,1:jj)) / 9.8)
     call set_field_values(fields(4), real(temp(1:ii,1:jj,1,1)))
+    call set_field_values(fields(5), real(saln(1:ii,1:jj,1,1)))
 
     call ESMF_StateAdd(export_state, fields, rc=rc)
     call assert_success(rc)
@@ -146,6 +148,7 @@ contains
     call hycom_run()
 
     call export_ssh(export_state)
+    call export_sss(export_state)
     call export_sst(export_state)
     call export_u(export_state)
     call export_v(export_state)
@@ -255,6 +258,17 @@ contains
     call ESMF_StateGet(state, 'ssh', field)
     call set_field_values(field, real(srfhgt(1:ii,1:jj)) / 9.8)
   end subroutine export_ssh
+
+
+  subroutine export_sss(state)
+    ! Exports the sea surface salinity from HYCOM.
+    use mod_cb_arrays, only: saln
+    use mod_dimensions, only: ii, jj
+    type(ESMF_State), intent(in out) :: state
+    type(ESMF_Field) :: field
+    call ESMF_StateGet(state, 'sss', field)
+    call set_field_values(field, real(saln(1:ii,1:jj,1,2)))
+  end subroutine export_sss
 
 
   subroutine export_sst(state)
