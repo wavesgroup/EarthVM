@@ -127,7 +127,8 @@ contains
       call self % force_single_field(target_model, 'taux')
       call self % force_single_field(target_model, 'tauy')
       call self % force_single_field(target_model, 'rainrate')
-      call self % force_single_field(target_model, 'swflux')
+      call self % force_single_field(target_model, 'shortwave_flux')
+      call self % force_single_field(target_model, 'total_flux')
       !TODO post events taux_updated and tauy_updated
     end if
 

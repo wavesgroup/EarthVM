@@ -115,11 +115,12 @@ contains
     call ESMF_StateAdd(export_state, fields, rc=rc)
     call assert_success(rc)
 
-    fields = [                        &
-      create_field(grid, 'taux'),     &
-      create_field(grid, 'tauy'),     &
-      create_field(grid, 'rainrate'), &
-      create_field(grid, 'swflux')    &
+    fields = [                              &
+      create_field(grid, 'taux'),           &
+      create_field(grid, 'tauy'),           &
+      create_field(grid, 'rainrate'),       &
+      create_field(grid, 'shortwave_flux'), &
+      create_field(grid, 'total_flux')      &
     ]
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
@@ -139,7 +140,8 @@ contains
     call import_taux(import_state)
     call import_tauy(import_state)
     call import_precip(import_state)
-    call import_swflux(import_state)
+    call import_shortwave_flux(import_state)
+    call import_total_flux(import_state)
 
     call hycom_run()
 
@@ -230,7 +232,7 @@ contains
   end subroutine import_precip
 
 
-  subroutine import_swflux(state)
+  subroutine import_shortwave_flux(state)
     ! Updates the shortwave radiative flux (positive downward) in HYCOM.
     use mod_cb_arrays, only: swflx
     use mod_dimensions, only: ii, jj
@@ -238,10 +240,10 @@ contains
     type(ESMF_Field) :: field
     integer :: lb(2), ub(2)
     real, pointer :: field_values(:,:)
-    call ESMF_StateGet(state, 'swflux', field)
+    call ESMF_StateGet(state, 'shortwave_flux', field)
     call get_field_values(field, field_values, lb, ub)
     swflx(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
-  end subroutine import_swflux
+  end subroutine import_shortwave_flux
 
 
   subroutine export_ssh(state)
@@ -264,6 +266,20 @@ contains
     call ESMF_StateGet(state, 'sst', field)
     call set_field_values(field, real(temp(1:ii,1:jj,1,2)))
   end subroutine export_sst
+
+
+  subroutine import_total_flux(state)
+    ! Updates the total (radiative + enthalpy) flux (positive downward) in HYCOM.
+    use mod_cb_arrays, only: radflx
+    use mod_dimensions, only: ii, jj
+    type(ESMF_State), intent(in) :: state
+    type(ESMF_Field) :: field
+    integer :: lb(2), ub(2)
+    real, pointer :: field_values(:,:)
+    call ESMF_StateGet(state, 'total_flux', field)
+    call get_field_values(field, field_values, lb, ub)
+    radflx(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+  end subroutine import_total_flux
 
 
   subroutine export_u(state)

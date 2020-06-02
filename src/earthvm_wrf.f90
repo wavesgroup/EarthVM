@@ -80,14 +80,15 @@ contains
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
 
-    fields = [                        &
-      create_field(grid, 'u10'),      &
-      create_field(grid, 'v10'),      &
-      create_field(grid, 'psfc'),     &
-      create_field(grid, 'taux'),     &
-      create_field(grid, 'tauy'),     &
-      create_field(grid, 'rainrate'), &
-      create_field(grid, 'swflux')    &
+    fields = [                              &
+      create_field(grid, 'u10'),            &
+      create_field(grid, 'v10'),            &
+      create_field(grid, 'psfc'),           &
+      create_field(grid, 'taux'),           &
+      create_field(grid, 'tauy'),           &
+      create_field(grid, 'rainrate'),       &
+      create_field(grid, 'shortwave_flux'), &
+      create_field(grid, 'total_flux')      &
       ]
 
     call set_field_values(fields(1), head_grid % u10(ips:ipe,jps:jpe))
@@ -122,6 +123,22 @@ contains
       swflux = head_grid % swdown(ips:ipe,jps:jpe) &
              * (1 - head_grid % albedo(ips:ipe,jps:jpe))
       call set_field_values(fields(7), swflux)
+    end block
+
+    block
+      real :: radiative_flux(ips:ipe,jps:jpe)
+      real :: enthalpy_flux(ips:ipe,jps:jpe)
+      real(ESMF_KIND_R8), parameter :: sigma = 5.67037321d-8
+      integer :: i, j
+      do concurrent(i = ips:ipe, j = jps:jpe)
+        ! positive downward (into the ocean)
+        radiative_flux(i,j) = (head_grid % swdown(i,j) + head_grid % glw(i,j)) &
+                            * (1 - head_grid % albedo(i,j))                    &
+                            - head_grid % emiss(i,j) * sigma * head_grid % tsk(i,j)**4
+        ! positive downward (into the ocean)
+        enthalpy_flux(i,j) = - head_grid % hfx(i,j) - head_grid % lh(i,j)
+      end do
+      call set_field_values(fields(8), radiative_flux + enthalpy_flux)
     end block
 
     call ESMF_StateAdd(export_state, fields, rc=rc)
@@ -209,8 +226,25 @@ contains
       real :: swflux(ips:ipe,jps:jpe)
       swflux = head_grid % swdown(ips:ipe,jps:jpe) &
              * (1 - head_grid % albedo(ips:ipe,jps:jpe))
-      call ESMF_StateGet(export_state, 'swflux', field)
+      call ESMF_StateGet(export_state, 'shortwave_flux', field)
       call set_field_values(field, swflux)
+    end block
+
+    block
+      real :: radiative_flux(ips:ipe,jps:jpe)
+      real :: enthalpy_flux(ips:ipe,jps:jpe)
+      real(ESMF_KIND_R8), parameter :: sigma = 5.67037321d-8
+      integer :: i, j
+      do concurrent(i = ips:ipe, j = jps:jpe)
+        ! positive downward (into the ocean)
+        radiative_flux(i,j) = (head_grid % swdown(i,j) + head_grid % glw(i,j)) &
+                            * (1 - head_grid % albedo(i,j))                    &
+                            - head_grid % emiss(i,j) * sigma * head_grid % tsk(i,j)**4
+        ! positive downward (into the ocean)
+        enthalpy_flux(i,j) = - head_grid % hfx(i,j) - head_grid % lh(i,j)
+      end do
+      call ESMF_StateGet(export_state, 'total_flux', field)
+      call set_field_values(field, radiative_flux + enthalpy_flux)
     end block
 
     rc = ESMF_SUCCESS
