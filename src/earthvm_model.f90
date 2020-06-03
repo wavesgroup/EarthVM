@@ -20,7 +20,7 @@ module earthvm_model
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
     type(earthvm_regrid_type) :: regrid
-    type(string), allocatable :: import_field_names(:), export_field_names(:)
+    type(string), allocatable :: import_fields(:), export_fields(:)
   contains
     procedure, pass(self) :: finalize
     procedure, pass(self) :: force
@@ -30,6 +30,8 @@ module earthvm_model
     procedure, pass(self) :: get_field_data
     procedure, pass(self) :: initialize
     procedure, pass(self) :: run
+    procedure, pass(self) :: set_import_fields
+    procedure, pass(self) :: set_export_fields
     procedure, pass(self) :: set_services
     procedure, pass(self) :: write_to_netcdf
   end type earthvm_model_type
@@ -60,7 +62,7 @@ contains
     call ESMF_TimeIntervalSet(timeinterval=esmf_time_step, s=time_step, rc=rc)
     call assert_success(rc)
 
-    CALL ESMF_TimeSet(time = esmf_start_time,          &
+    call ESMF_TimeSet(time = esmf_start_time,          &
                       yy   = start_time % getYear(),   &
                       mm   = start_time % getMonth(),  &
                       dd   = start_time % getDay(),    &
@@ -70,7 +72,7 @@ contains
                       rc   = rc)
     call assert_success(rc)
 
-    CALL ESMF_TimeSet(time = esmf_stop_time,          &
+    call ESMF_TimeSet(time = esmf_stop_time,          &
                       yy   = stop_time % getYear(),   &
                       mm   = stop_time % getMonth(),  &
                       dd   = stop_time % getDay(),    &
@@ -102,7 +104,6 @@ contains
                                            rc          = rc)
     call assert_success(rc)
 
-    !call self % set_services(set_wrf_services)
     call ESMF_GridCompSetServices(gridcomp    = self % gridded_component, &
                                   userRoutine = user_services,            &
                                   rc          = rc)
@@ -251,6 +252,20 @@ contains
     call ESMF_LogWrite('Model ' // self % name // ' ran', ESMF_LOGMSG_INFO)
     call ESMF_LogFlush()
   end subroutine finalize
+
+
+  subroutine set_import_fields(self, fields)
+    class(earthvm_model_type), intent(in out) :: self
+    type(string), intent(in) :: fields(:)
+    self % import_fields = fields
+  end subroutine set_import_fields
+
+
+  subroutine set_export_fields(self, fields)
+    class(earthvm_model_type), intent(in out) :: self
+    type(string), intent(in) :: fields(:)
+    self % export_fields = fields
+  end subroutine set_export_fields
 
 
   subroutine set_services(self, user_routine)
