@@ -43,7 +43,8 @@ module earthvm_model
 contains
 
   type(earthvm_model_type) function earthvm_model_constructor( &
-    name, start_time, stop_time, time_step, user_services) result(self)
+    name, start_time, stop_time, time_step, user_services, &
+    import_fields, export_fields) result(self)
     character(*), intent(in) :: name
     type(datetime), intent(in) :: start_time, stop_time
     integer, intent(in) :: time_step ! seconds
@@ -54,10 +55,23 @@ contains
         integer, intent(out) :: rc
       end subroutine user_services
     end interface
+    type(string), intent(in), optional :: import_fields(:), export_fields(:)
     type(ESMF_Time) :: esmf_start_time, esmf_stop_time
     type(ESMF_TimeInterval) :: esmf_time_step
     integer :: rc
     self % name = name
+
+    if (present(import_fields)) then
+      self % import_fields = import_fields
+    else
+      allocate(self % import_fields(0))
+    end if
+
+    if (present(export_fields)) then
+      self % export_fields = export_fields
+    else
+      allocate(self % export_fields(0))
+    end if
 
     call ESMF_TimeIntervalSet(timeinterval=esmf_time_step, s=time_step, rc=rc)
     call assert_success(rc)
@@ -118,21 +132,12 @@ contains
     ! To force the target model in effect, the regridded values must be copied
     ! to the native model data structure.
     class(earthvm_model_type), intent(in out) :: self, target_model
-
-    if (self % name == 'hycom' .and. target_model % name == 'wrf') then
-      call self % force_single_field(target_model, 'sst')
-      !TODO post event sst_updated
-    end if
-
-    if (self % name == 'wrf' .and. target_model % name == 'hycom') then
-      call self % force_single_field(target_model, 'taux')
-      call self % force_single_field(target_model, 'tauy')
-      call self % force_single_field(target_model, 'rainrate')
-      call self % force_single_field(target_model, 'shortwave_flux')
-      call self % force_single_field(target_model, 'total_flux')
-      !TODO post events taux_updated and tauy_updated
-    end if
-
+    integer :: n
+    do n = 1, size(self % export_fields)
+      if (any(self % export_fields(n) == target_model % import_fields)) then
+        call self % force_single_field(target_model, self % export_fields(n) % value)
+      end if
+    end do
   end subroutine force
 
 
