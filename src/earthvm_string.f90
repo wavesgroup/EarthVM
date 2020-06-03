@@ -7,8 +7,10 @@ module earthvm_string
   type :: string
     character(:), allocatable :: value
   contains
+    procedure :: eq
     procedure :: w
     generic :: write(formatted) => w
+    generic :: operator(==) => eq
   end type string
 
 contains
@@ -26,5 +28,11 @@ contains
       write(unit, '(a)') ''
     end if
   end subroutine w
+
+
+  pure elemental logical function eq(self, other_string)
+    class(string), intent(in) :: self, other_string
+    eq = self % value == other_string % value
+  end function eq
 
 end module earthvm_string
