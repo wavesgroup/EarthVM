@@ -1,14 +1,15 @@
 #!/bin/bash
 
-export WRF=$(pwd)/wrf-4.2
-export HYCOM=$(pwd)/hycom-2.3.01
+export WRF=`pwd`/wrf-4.2
+export UMWM=`pwd`/umwm/src
+export HYCOM=`pwd`/hycom-2.3.01
 
-export HDF5=$(pwd)/netcdf
-export NETCDF=$(pwd)/netcdf
+export HDF5=`pwd`/netcdf
+export NETCDF=`pwd`/netcdf
 
 # ESMF configuration
 export ESMF_OS=Linux
-export ESMF_DIR=$(pwd)/esmf-8.0.0
+export ESMF_DIR=`pwd`/esmf-8.0.0
 export ESMF_COMPILER=gfortran
 export ESMF_ABI=64
 export ESMF_BOPT=O

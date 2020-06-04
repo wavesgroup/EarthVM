@@ -2,10 +2,15 @@
 
 FC = mpif90
 FFLAGS = -Wall -O0 -g -fbacktrace -fconvert=big-endian # big-endian needed for WRF
-#FCFFLAGS      =	-fPIC -fno-second-underscore -O2 -march=native -m64 -fdefault-real-8 -fdefault-double-8
-CPPFLAGS = -I$(ESMF_INCLUDE) -I$(WRF)/main -I$(WRF)/external/esmf_time_f90 -I$(HYCOM) -I$(NETCDF)/include
+CPPFLAGS = -I$(ESMF_INCLUDE) \
+           -I$(WRF)/main \
+	   -I$(WRF)/external/esmf_time_f90 \
+	   -I$(UMWM) \
+	   -I$(HYCOM) \
+	   -I$(NETCDF)/include
 LDFLAGS = -L$(WRF)/external/esmf_time_f90 -lesmf_time \
 	  -L$(WRF)/external/io_netcdf -lwrfio_nf \
+	  -L$(UMWM) -lumwm \
 	  -L$(HYCOM) -lhycom \
           -L$(ESMF_LIB) -lesmf_fullylinked \
           -L$(NETCDF)/lib -lnetcdff
@@ -22,7 +27,7 @@ WRF_OBJS = $(WRF)/main/module_wrf_top.o \
 
 export FC FFLAGS CPPFLAGS LDFLAGS WRF_OBJS
 
-.PHONY: all test clean
+.PHONY: all test clean umwm
 
 all: hycom
 	$(MAKE) --directory=src
@@ -41,9 +46,18 @@ clean_hycom:
 	$(RM) hycom-2.3.01/*.a
 	$(RM) hycom-2.3.01/*.mod
 
+clean_umwm:
+	$(MAKE) clean --directory=umwm
+
 download_hycom:
 	git clone -b 2.3.01 https://github.com/hycom/hycom-src hycom-2.3.01
+
+download_umwm:
+	git clone https://github.com/umwm/umwm
 
 hycom:
 	cd $(HYCOM) && ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM" TYPE=mpi make
 	ar rcs $(HYCOM)/libhycom.a $(HYCOM)/*.o
+
+umwm:
+	CPPFLAGS="-DMPI -DESMF" $(MAKE) umwm --directory=umwm

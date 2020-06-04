@@ -34,10 +34,17 @@ make check
 ### Download and build WRF
 
 ```
-git clone -b release-v4.2 --depth 1 https://github.com/wrf-model/wrf wrf-4.2
+git clone -b v4.2 --depth 1 https://github.com/wrf-model/wrf wrf-4.2
 cd wrf-4.2
 ./configure
 ./compile em_real
+```
+
+### Download and build UMWM
+
+```
+git clone https://github.com/umwm/umwm
+make umwm
 ```
 
 ### Download and build HYCOM
