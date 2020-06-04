@@ -1,10 +1,10 @@
 module earthvm_events
-  use earthvm_string, only: string
+  use earthvm_str, only: str
   implicit none
   private
 
   type :: earthvm_event_type
-    type(string) :: name
+    type(str) :: name
     logical :: status
   end type earthvm_event_type
 

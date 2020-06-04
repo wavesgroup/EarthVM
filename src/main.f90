@@ -5,7 +5,7 @@ program main
   use earthvm_model, only: earthvm_model_type
   use earthvm_state, only: earthvm_initialize, earthvm_finalize, &
                            earthvm_get_local_pet
-  use earthvm_string, only: string
+  use earthvm_str, only: str
   use earthvm_wrf, only: set_wrf_services => set_services
 
   implicit none
@@ -25,13 +25,13 @@ program main
   ocean = earthvm_model_type('hycom', start_time, stop_time, &
                              60, set_hycom_services)
 
-  call atmosphere % set_import_fields([string('sst')])
-  call atmosphere % set_export_fields([string('taux'), string('tauy'), &
-    string('rainrate'), string('shortwave_flux'), string('total_flux')])
+  call atmosphere % set_import_fields([str('sst')])
+  call atmosphere % set_export_fields([str('taux'), str('tauy'), &
+    str('rainrate'), str('shortwave_flux'), str('total_flux')])
 
-  call ocean % set_import_fields([string('taux'), string('tauy'), &
-    string('rainrate'), string('shortwave_flux'), string('total_flux')])
-  call ocean % set_export_fields([string('sst')])
+  call ocean % set_import_fields([str('taux'), str('tauy'), &
+    str('rainrate'), str('shortwave_flux'), str('total_flux')])
+  call ocean % set_export_fields([str('sst')])
 
   call atmosphere % initialize()
   call ocean % initialize()

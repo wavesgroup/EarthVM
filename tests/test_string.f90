@@ -1,5 +1,5 @@
-program test_string
-  use earthvm_string, only: string
-  print *, string('Hello')
-  print *, [string('Hello'), string('world!')]
-end program test_string
+program test_str
+  use earthvm_str, only: str
+  print *, str('Hello')
+  print *, [str('Hello'), str('world!')]
+end program test_str

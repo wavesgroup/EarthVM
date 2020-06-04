@@ -8,7 +8,7 @@ module earthvm_model
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_pet_count, &
                            earthvm_get_vm
   use earthvm_regrid, only: earthvm_regrid_type
-  use earthvm_string, only: string
+  use earthvm_str, only: str
   implicit none
 
   private
@@ -20,7 +20,7 @@ module earthvm_model
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
     type(earthvm_regrid_type) :: regrid
-    type(string), allocatable :: import_fields(:), export_fields(:)
+    type(str), allocatable :: import_fields(:), export_fields(:)
   contains
     procedure, pass(self) :: finalize
     procedure, pass(self) :: force
@@ -55,7 +55,7 @@ contains
         integer, intent(out) :: rc
       end subroutine user_services
     end interface
-    type(string), intent(in), optional :: import_fields(:), export_fields(:)
+    type(str), intent(in), optional :: import_fields(:), export_fields(:)
     type(ESMF_Time) :: esmf_start_time, esmf_stop_time
     type(ESMF_TimeInterval) :: esmf_time_step
     integer :: rc
@@ -261,14 +261,14 @@ contains
 
   subroutine set_import_fields(self, fields)
     class(earthvm_model_type), intent(in out) :: self
-    type(string), intent(in) :: fields(:)
+    type(str), intent(in) :: fields(:)
     self % import_fields = fields
   end subroutine set_import_fields
 
 
   subroutine set_export_fields(self, fields)
     class(earthvm_model_type), intent(in out) :: self
-    type(string), intent(in) :: fields(:)
+    type(str), intent(in) :: fields(:)
     self % export_fields = fields
   end subroutine set_export_fields
 
