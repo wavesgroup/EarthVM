@@ -29,7 +29,7 @@ export FC FFLAGS CPPFLAGS LDFLAGS WRF_OBJS
 
 .PHONY: all test clean umwm
 
-all: hycom
+all: hycom umwm
 	$(MAKE) --directory=src
 	$(MAKE) --directory=tests
 

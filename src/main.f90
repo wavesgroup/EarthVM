@@ -6,11 +6,12 @@ program main
   use earthvm_state, only: earthvm_initialize, earthvm_finalize, &
                            earthvm_get_local_pet
   use earthvm_str, only: str
+  use earthvm_umwm, only: set_umwm_services => set_services
   use earthvm_wrf, only: set_wrf_services => set_services
 
   implicit none
 
-  type(earthvm_model_type) :: atmosphere, ocean
+  type(earthvm_model_type) :: atmosphere, waves, ocean
   type(datetime) :: start_time, stop_time, time
   integer :: local_pet
 
@@ -22,6 +23,8 @@ program main
 
   atmosphere = earthvm_model_type('wrf', start_time, stop_time, &
                                   45, set_wrf_services)
+  waves = earthvm_model_type('waves', start_time, stop_time, &
+                             60, set_umwm_services)
   ocean = earthvm_model_type('hycom', start_time, stop_time, &
                              60, set_hycom_services)
 
