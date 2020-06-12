@@ -3,17 +3,26 @@
 *.a
 *.b
 *.ESMF_LogFile
+ESMF_LogFile
+*.TBL
 
 esmf-8.0.0
 wrf-4.2
 hycom-2.3.01
+umwm
 netcdf
 src/main
 
 WORKLOG.md
 namelist.output
+namelist.input
+RRTM_DATA
+RRTMG_DATA
+wrfinput_d01
+wrfbdy_d01
 
 *.nc
 
 run
 configs
+
