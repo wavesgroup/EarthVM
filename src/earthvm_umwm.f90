@@ -83,6 +83,19 @@ contains
     fields = [create_field(grid, 'wspd'), create_field(grid, 'wdir'), create_field(grid, 'rhoa')]
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
+    
+    fields = [                        &
+      create_field(grid, 'swh'),      &
+      create_field(grid, 'mwp'),      &
+      create_field(grid, 'u_stokes'), &
+      create_field(grid, 'v_stokes'), &
+      create_field(grid, 'taux_atm'), &
+      create_field(grid, 'tauy_atm'), &
+      create_field(grid, 'taux_ocn'), &
+      create_field(grid, 'tauy_ocn')  &
+    ]
+    call ESMF_StateAdd(export_state, fields, rc=rc)
+    call assert_success(rc)
 
     rc = ESMF_SUCCESS
   end subroutine model_init
