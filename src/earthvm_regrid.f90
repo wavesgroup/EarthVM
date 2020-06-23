@@ -18,7 +18,17 @@ module earthvm_regrid
     procedure, pass(self), public :: regrid_field_store
   end type earthvm_regrid_type
 
+  interface earthvm_regrid_type
+    module procedure :: earthvm_regrid_constructor
+  end interface earthvm_regrid_type
+
 contains
+
+  type(earthvm_regrid_type) function earthvm_regrid_constructor(name)
+    character(*), intent(in) :: name
+    earthvm_regrid_constructor % name = name
+  end function earthvm_regrid_constructor 
+
 
   subroutine regrid_field_store(self, source_field, destination_field)
     class(earthvm_regrid_type), intent(in out) :: self

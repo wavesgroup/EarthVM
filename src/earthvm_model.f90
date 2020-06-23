@@ -19,7 +19,7 @@ module earthvm_model
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
-    type(earthvm_regrid_type) :: regrid
+    type(earthvm_regrid_type), allocatable :: regrid(:)
     type(str), allocatable :: import_fields(:), export_fields(:)
   contains
     procedure, pass(self) :: finalize
@@ -60,6 +60,8 @@ contains
     type(ESMF_TimeInterval) :: esmf_time_step
     integer :: rc
     self % name = name
+
+    allocate(self % regrid(0))
 
     if (present(import_fields)) then
       self % import_fields = import_fields
@@ -146,17 +148,32 @@ contains
     class(earthvm_model_type), intent(in out) :: self, target_model
     character(*), intent(in) :: field_name
     type(ESMF_Field) :: source_field, destination_field
+    logical :: found
+    integer :: n
 
-    !TODO check that our regrid instance matches target model name
+    ! search for the correct regrid instance
+    found = .false.
+    do n = 1, size(self % regrid)
+      if (self % regrid(n) % name == target_model % name) then
+        found = .true.
+        exit
+      end if         
+    end do
+
+    if (.not. found) then
+      ! regrid instance not found; create a new one and add it to the stack
+      self % regrid = [self % regrid, earthvm_regrid_type(target_model % name)]
+      n = size(self % regrid)
+    end if
 
     source_field = self % get_field(field_name)
     destination_field = target_model % get_field(field_name)
 
-    if (.not. self % regrid % initialized) then
-      call self % regrid % regrid_field_store(source_field, destination_field)
+    if (.not. self % regrid(n) % initialized) then
+      call self % regrid(n) % regrid_field_store(source_field, destination_field)
     end if
 
-    call self % regrid % regrid_field(source_field, destination_field)
+    call self % regrid(n) % regrid_field(source_field, destination_field)
 
   end subroutine force_single_field
 
