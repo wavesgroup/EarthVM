@@ -89,6 +89,7 @@ contains
       create_field(grid, 'rainrate'),       &
       create_field(grid, 'shortwave_flux'), &
       create_field(grid, 'total_flux'),     &
+      create_field(grid, 'rhoa'),           &
       create_field(grid, 'wspd'),           &
       create_field(grid, 'wdir')            &
       ]
@@ -96,6 +97,7 @@ contains
     call set_field_values(fields(1), head_grid % u10(ips:ipe,jps:jpe))
     call set_field_values(fields(2), head_grid % v10(ips:ipe,jps:jpe))
     call set_field_values(fields(3), head_grid % psfc(ips:ipe,jps:jpe))
+    call set_field_values(fields(9), 1 / head_grid % alt(ips:ipe,1,jps:jpe))
 
     block
       real :: wspd(ips:ipe,jps:jpe)
@@ -111,8 +113,8 @@ contains
            / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
       call set_field_values(fields(4), taux)
       call set_field_values(fields(5), tauy)
-      call set_field_values(fields(9), wspd)
-      call set_field_values(fields(10), wdir)
+      call set_field_values(fields(10), wspd)
+      call set_field_values(fields(11), wdir)
     end block
 
     block
@@ -198,6 +200,9 @@ contains
 
     call ESMF_StateGet(export_state, 'psfc', field)
     call set_field_values(field, head_grid % psfc(ips:ipe,jps:jpe))
+    
+    call ESMF_StateGet(export_state, 'rhoa', field)
+    call set_field_values(field, 1 / head_grid % alt(ips:ipe,1,jps:jpe))
 
     block
       real :: wspd(ips:ipe,jps:jpe)

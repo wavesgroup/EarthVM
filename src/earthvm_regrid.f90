@@ -9,6 +9,7 @@ module earthvm_regrid
   public :: earthvm_regrid_type
 
   type :: earthvm_regrid_type
+    character(:), allocatable :: name
     logical :: initialized = .false.
     type(ESMF_Grid) :: source_grid, destination_grid
     type(ESMF_RouteHandle) :: weights

@@ -147,6 +147,8 @@ contains
     character(*), intent(in) :: field_name
     type(ESMF_Field) :: source_field, destination_field
 
+    !TODO check that our regrid instance matches target model name
+
     source_field = self % get_field(field_name)
     destination_field = target_model % get_field(field_name)
 

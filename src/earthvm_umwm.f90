@@ -80,7 +80,7 @@ contains
     grid = create_grid(distgrid, 'UMWM grid', lon, lat, mask)
     call write_grid_to_netcdf(grid, 'umwm_grid.nc')
 
-    fields = [create_field(grid, 'wspd'), create_field(grid, 'wdir')]
+    fields = [create_field(grid, 'wspd'), create_field(grid, 'wdir'), create_field(grid, 'rhoa')]
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
 
@@ -89,6 +89,9 @@ contains
 
 
   subroutine model_run(gridded_component, import_state, export_state, clock, rc)
+
+    use umwm_module, only: istart, iend, mi, ni, rhoa, rhow, rhorat, wspd, wdir 
+
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
@@ -98,8 +101,9 @@ contains
     type(ESMF_TimeInterval) :: time_step
     character(256) :: start_time_string, stop_time_string
 
-    type(ESMF_Field) :: field
+    integer :: i
 
+    type(ESMF_Field) :: field
     real, pointer :: field_values(:,:)
     integer :: lb(2), ub(2)
     
@@ -115,8 +119,28 @@ contains
 
     start_time_string(11:11) = ' '
     stop_time_string(11:11) = ' '
+    
+    call ESMF_StateGet(import_state, 'wspd', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent(i = istart:iend)
+      wspd(i) = field_values(mi(i), ni(i))
+    end do
 
-    !call umwm_run(trim(start_time_string), trim(stop_time_string))
+    call ESMF_StateGet(import_state, 'wdir', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent(i = istart:iend)
+      wdir(i) = field_values(mi(i), ni(i))
+    end do
+
+    call ESMF_StateGet(import_state, 'rhoa', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent(i = istart:iend)
+      rhoa(i) = field_values(mi(i), ni(i))
+    end do
+
+    rhorat = rhoa / rhow
+
+    call umwm_run(trim(start_time_string), trim(stop_time_string))
 
     rc = ESMF_SUCCESS
   end subroutine model_run
