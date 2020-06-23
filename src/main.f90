@@ -30,9 +30,9 @@ program main
 
   call atmosphere % set_import_fields([str('sst')])
   call atmosphere % set_export_fields([str('taux'), str('tauy'), &
-    str('rainrate'), str('shortwave_flux'), str('total_flux'), str('wspd'), str('wdir')])
+    str('rainrate'), str('shortwave_flux'), str('total_flux'), str('wspd'), str('wdir'), str('rhoa')])
   
-  call waves % set_import_fields([str('wspd'), str('wdir')])
+  call waves % set_import_fields([str('wspd'), str('wdir'), str('rhoa')])
 
   call ocean % set_import_fields([str('taux'), str('tauy'), &
     str('rainrate'), str('shortwave_flux'), str('total_flux')])
@@ -41,11 +41,11 @@ program main
   call atmosphere % initialize()
   call waves % initialize()
   call ocean % initialize()
-  
-  call atmosphere % force(ocean)
-  !call atmosphere % force(waves)
-  call ocean % force(atmosphere)
 
+  call atmosphere % force(ocean)
+  call atmosphere % force(waves)
+  call ocean % force(atmosphere)
+      
   time = start_time
   do
 
@@ -55,13 +55,17 @@ program main
         time % strftime('%Y-%m-%d %H:%M:%S'), ': Running atmosphere'
       call atmosphere % run()
       call atmosphere % force(ocean)
+      call atmosphere % force(waves)
       call atmosphere % write_to_netcdf()
     end if
 
-    !if (waves % get_current_time() < time) then
-    !  call waves % run()
-    !  call waves % write_to_netcdf()
-    !end if
+    ! run waves for one time step
+    if (waves % get_current_time() < time) then
+      if (local_pet == 0) print *, &
+        time % strftime('%Y-%m-%d %H:%M:%S'), ': Running waves'
+      call waves % run()
+      call waves % write_to_netcdf()
+    end if
 
     ! run ocean for one time step
     if (ocean % get_current_time() < time) then

@@ -115,8 +115,6 @@ contains
     call ESMF_TimeGet(current_time, timeStringISOFrac=start_time_string)
     call ESMF_TimeGet(current_time + time_step, timeStringISOFrac=stop_time_string)
 
-    if (local_pet == 0) print *, 'Running UMWM'
-
     start_time_string(11:11) = ' '
     stop_time_string(11:11) = ' '
     
