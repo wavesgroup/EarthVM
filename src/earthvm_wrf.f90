@@ -88,7 +88,9 @@ contains
       create_field(grid, 'tauy'),           &
       create_field(grid, 'rainrate'),       &
       create_field(grid, 'shortwave_flux'), &
-      create_field(grid, 'total_flux')      &
+      create_field(grid, 'total_flux'),     &
+      create_field(grid, 'wspd'),           &
+      create_field(grid, 'wdir')            &
       ]
 
     call set_field_values(fields(1), head_grid % u10(ips:ipe,jps:jpe))
@@ -97,16 +99,20 @@ contains
 
     block
       real :: wspd(ips:ipe,jps:jpe)
+      real :: wdir(ips:ipe,jps:jpe)
       real :: taux(ips:ipe,jps:jpe)
       real :: tauy(ips:ipe,jps:jpe)
       wspd = sqrt(head_grid % u10(ips:ipe,jps:jpe)**2 &
                 + head_grid % v10(ips:ipe,jps:jpe)**2)
+      wdir = atan2(head_grid % v10(ips:ipe,jps:jpe), head_grid % u10(ips:ipe,jps:jpe))
       taux = head_grid % ust(ips:ipe,jps:jpe)**2 * head_grid % u10(ips:ipe,jps:jpe) &
            / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
       tauy = head_grid % ust(ips:ipe,jps:jpe)**2 * head_grid % v10(ips:ipe,jps:jpe) &
            / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
       call set_field_values(fields(4), taux)
       call set_field_values(fields(5), tauy)
+      call set_field_values(fields(9), wspd)
+      call set_field_values(fields(10), wdir)
     end block
 
     block
@@ -195,10 +201,20 @@ contains
 
     block
       real :: wspd(ips:ipe,jps:jpe)
+      real :: wdir(ips:ipe,jps:jpe)
       real :: taux(ips:ipe,jps:jpe)
       real :: tauy(ips:ipe,jps:jpe)
+      
       wspd = sqrt(head_grid % u10(ips:ipe,jps:jpe)**2 &
                 + head_grid % v10(ips:ipe,jps:jpe)**2)
+      wdir = atan2(head_grid % v10(ips:ipe,jps:jpe), head_grid % u10(ips:ipe,jps:jpe))
+      
+      call ESMF_StateGet(export_state, 'wspd', field)
+      call set_field_values(field, wspd)
+      
+      call ESMF_StateGet(export_state, 'wdir', field)
+      call set_field_values(field, wdir)
+      
       taux = head_grid % ust(ips:ipe,jps:jpe)**2 * head_grid % u10(ips:ipe,jps:jpe) &
            / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
       tauy = head_grid % ust(ips:ipe,jps:jpe)**2 * head_grid % v10(ips:ipe,jps:jpe) &

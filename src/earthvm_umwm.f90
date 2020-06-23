@@ -80,6 +80,10 @@ contains
     grid = create_grid(distgrid, 'UMWM grid', lon, lat, mask)
     call write_grid_to_netcdf(grid, 'umwm_grid.nc')
 
+    fields = [create_field(grid, 'wspd'), create_field(grid, 'wdir')]
+    call ESMF_StateAdd(import_state, fields, rc=rc)
+    call assert_success(rc)
+
     rc = ESMF_SUCCESS
   end subroutine model_init
 
@@ -90,12 +94,29 @@ contains
     type(ESMF_Clock) :: clock
     integer, intent(out) :: rc
 
+    type(ESMF_Time) :: current_time
+    type(ESMF_TimeInterval) :: time_step
+    character(256) :: start_time_string, stop_time_string
+
     type(ESMF_Field) :: field
 
     real, pointer :: field_values(:,:)
     integer :: lb(2), ub(2)
+    
+    integer :: local_pet
 
-    !call umwm_run()
+    local_pet = earthvm_get_local_pet()
+
+    call ESMF_ClockGet(clock, timeStep=time_step, currTime=current_time)
+    call ESMF_TimeGet(current_time, timeStringISOFrac=start_time_string)
+    call ESMF_TimeGet(current_time + time_step, timeStringISOFrac=stop_time_string)
+
+    if (local_pet == 0) print *, 'Running UMWM'
+
+    start_time_string(11:11) = ' '
+    stop_time_string(11:11) = ' '
+
+    !call umwm_run(trim(start_time_string), trim(stop_time_string))
 
     rc = ESMF_SUCCESS
   end subroutine model_run

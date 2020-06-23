@@ -23,21 +23,27 @@ program main
 
   atmosphere = earthvm_model_type('wrf', start_time, stop_time, &
                                   45, set_wrf_services)
-  waves = earthvm_model_type('waves', start_time, stop_time, &
+  waves = earthvm_model_type('umwm', start_time, stop_time, &
                              60, set_umwm_services)
   ocean = earthvm_model_type('hycom', start_time, stop_time, &
                              60, set_hycom_services)
 
   call atmosphere % set_import_fields([str('sst')])
   call atmosphere % set_export_fields([str('taux'), str('tauy'), &
-    str('rainrate'), str('shortwave_flux'), str('total_flux')])
+    str('rainrate'), str('shortwave_flux'), str('total_flux'), str('wspd'), str('wdir')])
+  
+  call waves % set_import_fields([str('wspd'), str('wdir')])
 
   call ocean % set_import_fields([str('taux'), str('tauy'), &
     str('rainrate'), str('shortwave_flux'), str('total_flux')])
   call ocean % set_export_fields([str('sst')])
 
   call atmosphere % initialize()
+  call waves % initialize()
   call ocean % initialize()
+  
+  call atmosphere % force(ocean)
+  !call atmosphere % force(waves)
   call ocean % force(atmosphere)
 
   time = start_time
@@ -51,6 +57,11 @@ program main
       call atmosphere % force(ocean)
       call atmosphere % write_to_netcdf()
     end if
+
+    !if (waves % get_current_time() < time) then
+    !  call waves % run()
+    !  call waves % write_to_netcdf()
+    !end if
 
     ! run ocean for one time step
     if (ocean % get_current_time() < time) then
