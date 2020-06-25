@@ -77,8 +77,6 @@ contains
     
     ! create and add export fields to import state
     fields = [                        &
-      create_field(grid, 'swh'),      &
-      create_field(grid, 'mwp'),      &
       create_field(grid, 'u_stokes'), &
       create_field(grid, 'v_stokes'), &
       create_field(grid, 'taux_atm'), &
@@ -102,6 +100,7 @@ contains
                            taux_skin, tauy_skin,         &
                            taux_ocntop, tauy_ocntop,     &
                            taux_snl, tauy_snl
+    use umwm_stokes, only: us, vs
 
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
@@ -158,25 +157,55 @@ contains
     
     ! set export field values from UMWM arrays
     block
-      real :: taux_atm(ips:ipe,jps:jpe)
-      real :: tauy_atm(ips:ipe,jps:jpe)
-     
-      taux_atm = 0
-      tauy_atm = 0
-
+      real :: tmp_array(ips:ipe,jps:jpe)
+    
+      ! taux_atm
+      tmp_array = 0
       do concurrent(i = istart:iend)
-        taux_atm(mi(i),ni(i)) = taux_form(i) + taux_skin(i)
-        tauy_atm(mi(i),ni(i)) = tauy_form(i) + tauy_skin(i)
+        tmp_array(mi(i),ni(i)) = taux_form(i) + taux_skin(i)
       end do
-      
-      call umwm_set_boundary_values(taux_atm, mm, nm)
-      call umwm_set_boundary_values(tauy_atm, mm, nm)
-
       call ESMF_StateGet(export_state, 'taux_atm', field)
-      call set_field_values(field, taux_atm)
+      call set_field_values(field, tmp_array)
       
+      ! tauy_atm
+      tmp_array = 0
+      do concurrent(i = istart:iend)
+        tmp_array(mi(i),ni(i)) = tauy_form(i) + tauy_skin(i)
+      end do
       call ESMF_StateGet(export_state, 'tauy_atm', field)
-      call set_field_values(field, tauy_atm)
+      call set_field_values(field, tmp_array)
+      
+      ! taux_ocn
+      tmp_array = 0
+      do concurrent(i = istart:iend)
+        tmp_array(mi(i),ni(i)) = taux_ocntop(i) - taux_snl(i)
+      end do
+      call ESMF_StateGet(export_state, 'taux_ocn', field)
+      call set_field_values(field, tmp_array)
+      
+      ! tauy_ocn
+      tmp_array = 0
+      do concurrent(i = istart:iend)
+        tmp_array(mi(i),ni(i)) = tauy_ocntop(i) - tauy_snl(i)
+      end do
+      call ESMF_StateGet(export_state, 'tauy_ocn', field)
+      call set_field_values(field, tmp_array)
+
+      ! u_stokes
+      tmp_array = 0
+      do concurrent(i = istart:iend)
+        tmp_array(mi(i),ni(i)) = us(i,1)
+      end do
+      call ESMF_StateGet(export_state, 'u_stokes', field)
+      call set_field_values(field, tmp_array)
+
+      ! v_stokes
+      tmp_array = 0
+      do concurrent(i = istart:iend)
+        tmp_array(mi(i),ni(i)) = vs(i,1)
+      end do
+      call ESMF_StateGet(export_state, 'v_stokes', field)
+      call set_field_values(field, tmp_array)
 
     end block
 
@@ -224,22 +253,17 @@ contains
 
 
   subroutine umwm_set_boundary_values(array, ide, jde)
+    ! Fills boundary values of a 2-d array with the immediate neighbor values.
     real, intent(in out) :: array(:,:)
     integer, intent(in) :: ide, jde
     integer :: ips, ipe, jps, jpe
     
     call umwm_get_tile_bounds(ide, jde, ips, ipe, jps, jpe)
-    print *, earthvm_get_local_pet(), ide, jde, ips, ipe, jps, jpe
     
     if (ips == 1) array(ips,:) = array(ips+1,:)
     if (ipe == ide) array(ipe,:) = array(ipe-1,:)
     if (jps == 1) array(:,jps) = array(:,jps+1)
-    if (jpe == jde) then
-      !TODO there is a bug here
-      print *, 'north boundary copy triggered'
-      array(:,jpe) = array(:,jpe-1)
-      print *, 'north edge', array(:,jpe)
-    end if
+    if (jpe == jde) array(:,jpe) = array(:,jpe-1)
 
   end subroutine umwm_set_boundary_values
 
