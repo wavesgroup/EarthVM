@@ -40,7 +40,7 @@ contains
 
   subroutine model_init(gridded_component, import_state, export_state, clock, rc)
 
-    use umwm_module, only: mm, nm, istart, iend, mi, ni, lon, lat, mask
+    use umwm_module, only: mm, nm, lon, lat, mask
 
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
@@ -58,32 +58,24 @@ contains
 
     call umwm_initialize()
 
-    if (mm >= nm) then
-      ! row-major remapping
-      ips = mi(istart)
-      ipe = mi(iend)
-      jps = 1
-      jpe = nm
-      if (local_pet == 0) ips = ips - 1
-      if (local_pet == pet_count - 1) ipe = ipe + 1
-    else if (mm < nm) then
-      ! column-major remapping
-      ips = 1
-      ipe = mm
-      jps = ni(istart)
-      jpe = ni(iend)
-      if (local_pet == 0) jps = jps - 1
-      if (local_pet == pet_count - 1) jpe = jpe + 1
-    end if
+    call umwm_get_tile_bounds(mm, nm, ips, ipe, jps, jpe)
 
     distgrid = create_distgrid([ips, jps], [ipe, jpe], [1, 1], [mm, nm])
     grid = create_grid(distgrid, 'UMWM grid', lon, lat, mask)
     call write_grid_to_netcdf(grid, 'umwm_grid.nc')
 
-    fields = [create_field(grid, 'wspd'), create_field(grid, 'wdir'), create_field(grid, 'rhoa')]
+    ! create and add import fields to import state
+    fields = [create_field(grid, 'wspd'),      &
+              create_field(grid, 'wdir'),      &
+              create_field(grid, 'rhoa'),      &
+              create_field(grid, 'u_current'), &
+              create_field(grid, 'v_current'), &
+              create_field(grid, 'rhow')       &
+              ]
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
     
+    ! create and add export fields to import state
     fields = [                        &
       create_field(grid, 'swh'),      &
       create_field(grid, 'mwp'),      &
@@ -103,7 +95,13 @@ contains
 
   subroutine model_run(gridded_component, import_state, export_state, clock, rc)
 
-    use umwm_module, only: istart, iend, mi, ni, rhoa, rhow, rhorat, wspd, wdir 
+    use umwm_module, only: istart, iend, mm, nm, mi, ni, &
+                           rhoa, rhow, rhorat,           &
+                           wspd, wdir,                   &
+                           taux_form, tauy_form,         &
+                           taux_skin, tauy_skin,         &
+                           taux_ocntop, tauy_ocntop,     &
+                           taux_snl, tauy_snl
 
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
@@ -115,14 +113,16 @@ contains
     character(256) :: start_time_string, stop_time_string
 
     integer :: i
+    integer :: ips, ipe, jps, jpe
 
     type(ESMF_Field) :: field
     real, pointer :: field_values(:,:)
     integer :: lb(2), ub(2)
     
-    integer :: local_pet
+    integer :: local_pet, pet_count
 
     local_pet = earthvm_get_local_pet()
+    pet_count = earthvm_get_pet_count()
 
     call ESMF_ClockGet(clock, timeStep=time_step, currTime=current_time)
     call ESMF_TimeGet(current_time, timeStringISOFrac=start_time_string)
@@ -131,27 +131,54 @@ contains
     start_time_string(11:11) = ' '
     stop_time_string(11:11) = ' '
     
+    ! set import field values to UMWM arrays
     call ESMF_StateGet(import_state, 'wspd', field)
     call get_field_values(field, field_values, lb, ub)
     do concurrent(i = istart:iend)
-      wspd(i) = field_values(mi(i), ni(i))
+      wspd(i) = field_values(mi(i),ni(i))
     end do
 
     call ESMF_StateGet(import_state, 'wdir', field)
     call get_field_values(field, field_values, lb, ub)
     do concurrent(i = istart:iend)
-      wdir(i) = field_values(mi(i), ni(i))
+      wdir(i) = field_values(mi(i),ni(i))
     end do
 
     call ESMF_StateGet(import_state, 'rhoa', field)
     call get_field_values(field, field_values, lb, ub)
     do concurrent(i = istart:iend)
-      rhoa(i) = field_values(mi(i), ni(i))
+      rhoa(i) = field_values(mi(i),ni(i))
     end do
 
     rhorat = rhoa / rhow
 
     call umwm_run(trim(start_time_string), trim(stop_time_string))
+    
+    call umwm_get_tile_bounds(mm, nm, ips, ipe, jps, jpe)
+    
+    ! set export field values from UMWM arrays
+    block
+      real :: taux_atm(ips:ipe,jps:jpe)
+      real :: tauy_atm(ips:ipe,jps:jpe)
+     
+      taux_atm = 0
+      tauy_atm = 0
+
+      do concurrent(i = istart:iend)
+        taux_atm(mi(i),ni(i)) = taux_form(i) + taux_skin(i)
+        tauy_atm(mi(i),ni(i)) = tauy_form(i) + tauy_skin(i)
+      end do
+      
+      call umwm_set_boundary_values(taux_atm, mm, nm)
+      call umwm_set_boundary_values(tauy_atm, mm, nm)
+
+      call ESMF_StateGet(export_state, 'taux_atm', field)
+      call set_field_values(field, taux_atm)
+      
+      call ESMF_StateGet(export_state, 'tauy_atm', field)
+      call set_field_values(field, tauy_atm)
+
+    end block
 
     rc = ESMF_SUCCESS
   end subroutine model_run
@@ -165,6 +192,56 @@ contains
     call umwm_finalize()
     rc = ESMF_SUCCESS
   end subroutine model_finalize
+
+  
+  subroutine umwm_get_tile_bounds(ide, jde, ips, ipe, jps, jpe)
+    ! Given domain extent indices, returns local tile extend indices.
+    use umwm_module, only: istart, iend, mi, ni
+    integer, intent(in) :: ide, jde
+    integer, intent(out) :: ips, ipe, jps, jpe
+    integer :: local_pet, pet_count
+   
+    local_pet = earthvm_get_local_pet()
+    pet_count = earthvm_get_pet_count()
+   
+    if (ide >= jde) then
+      ips = mi(istart)
+      ipe = mi(iend)
+      jps = 1
+      jpe = jde
+      if (local_pet == 0) ips = ips - 1
+      if (local_pet == pet_count - 1) ipe = ipe + 1
+    else if (ide < jde) then
+      ips = 1
+      ipe = ide
+      jps = ni(istart)
+      jpe = ni(iend)
+      if (local_pet == 0) jps = jps - 1
+      if (local_pet == pet_count - 1) jpe = jpe + 1
+    end if
+  
+  end subroutine umwm_get_tile_bounds
+
+
+  subroutine umwm_set_boundary_values(array, ide, jde)
+    real, intent(in out) :: array(:,:)
+    integer, intent(in) :: ide, jde
+    integer :: ips, ipe, jps, jpe
+    
+    call umwm_get_tile_bounds(ide, jde, ips, ipe, jps, jpe)
+    print *, earthvm_get_local_pet(), ide, jde, ips, ipe, jps, jpe
+    
+    if (ips == 1) array(ips,:) = array(ips+1,:)
+    if (ipe == ide) array(ipe,:) = array(ipe-1,:)
+    if (jps == 1) array(:,jps) = array(:,jps+1)
+    if (jpe == jde) then
+      !TODO there is a bug here
+      print *, 'north boundary copy triggered'
+      array(:,jpe) = array(:,jpe-1)
+      print *, 'north edge', array(:,jpe)
+    end if
+
+  end subroutine umwm_set_boundary_values
 
 
 end module earthvm_umwm
