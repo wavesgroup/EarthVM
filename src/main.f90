@@ -29,14 +29,31 @@ program main
                              60, set_hycom_services)
 
   call atmosphere % set_import_fields([str('sst')])
-  call atmosphere % set_export_fields([str('taux'), str('tauy'), &
-    str('rainrate'), str('shortwave_flux'), str('total_flux'), str('wspd'), str('wdir'), str('rhoa')])
+  call atmosphere % set_export_fields([str('taux'),           &
+                                       str('tauy'),           &
+                                       str('rainrate'),       &
+                                       str('shortwave_flux'), &
+                                       str('total_flux'),     &
+                                       str('wspd'),           &
+                                       str('wdir'),           & 
+                                       str('rhoa')])
   
-  call waves % set_import_fields([str('wspd'), str('wdir'), str('rhoa')])
+  call waves % set_import_fields([str('wspd'), &
+                                  str('wdir'), &
+                                  str('rhoa'), &
+                                  str('rhow'), &
+                                  str('u'),    &
+                                  str('v')])
 
-  call ocean % set_import_fields([str('taux'), str('tauy'), &
-    str('rainrate'), str('shortwave_flux'), str('total_flux')])
-  call ocean % set_export_fields([str('sst')])
+  call ocean % set_import_fields([str('taux'),           &
+                                  str('tauy'),           &
+                                  str('rainrate'),       &
+                                  str('shortwave_flux'), & 
+                                  str('total_flux')])
+  call ocean % set_export_fields([str('sst'),  &
+                                  str('rhow'), &
+                                  str('u'),    &
+                                  str('v')])
 
   call atmosphere % initialize()
   call waves % initialize()
@@ -45,6 +62,7 @@ program main
   call atmosphere % force(ocean)
   call atmosphere % force(waves)
   call ocean % force(atmosphere)
+  call ocean % force(waves)
       
   time = start_time
   do
@@ -74,6 +92,7 @@ program main
       call ocean % run()
       call ocean % write_to_netcdf()
       call ocean % force(atmosphere)
+      call ocean % force(waves)
     end if
 
     ! advance master clock

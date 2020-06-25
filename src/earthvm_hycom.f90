@@ -9,7 +9,7 @@ module earthvm_hycom
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_mpicomm
 
   use mod_cb_arrays, only: plon, plat, depths, temp, taux, tauy, saln, &
-                           u, v, ubavg, vbavg, srfhgt, sshgmn, &
+                           u, v, ubavg, vbavg, srfhgt, sshgmn, th3d, &
                            w0, w1, w2, w3
   use mod_dimensions, only: itdm, jtdm, i0, j0, ii, jj
   use mod_hycom, only: hycom_init, hycom_run, hycom_final, end_of_run
@@ -105,7 +105,8 @@ contains
       create_field(grid, 'v'),   &
       create_field(grid, 'ssh'), &
       create_field(grid, 'sss'), &
-      create_field(grid, 'sst')  &
+      create_field(grid, 'sst'), &
+      create_field(grid, 'rhow') &
     ]
 
     call set_field_values(fields(1), real(u(1:ii,1:jj,1,1) + ubavg(1:ii,1:jj,1)))
@@ -113,6 +114,7 @@ contains
     call set_field_values(fields(3), real(srfhgt(1:ii,1:jj)) / 9.8)
     call set_field_values(fields(4), real(temp(1:ii,1:jj,1,1)))
     call set_field_values(fields(5), real(saln(1:ii,1:jj,1,1)))
+    call set_field_values(fields(6), real(th3d(1:ii,1:jj,1,1)))
 
     call ESMF_StateAdd(export_state, fields, rc=rc)
     call assert_success(rc)
@@ -152,6 +154,7 @@ contains
     call export_sst(export_state)
     call export_u(export_state)
     call export_v(export_state)
+    call export_density(export_state)
 
     rc = ESMF_SUCCESS
   end subroutine model_run
@@ -248,6 +251,20 @@ contains
     swflx(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
   end subroutine import_shortwave_flux
 
+  
+  subroutine import_total_flux(state)
+    ! Updates the total (radiative + enthalpy) flux (positive downward) in HYCOM.
+    use mod_cb_arrays, only: radflx
+    use mod_dimensions, only: ii, jj
+    type(ESMF_State), intent(in) :: state
+    type(ESMF_Field) :: field
+    integer :: lb(2), ub(2)
+    real, pointer :: field_values(:,:)
+    call ESMF_StateGet(state, 'total_flux', field)
+    call get_field_values(field, field_values, lb, ub)
+    radflx(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+  end subroutine import_total_flux
+
 
   subroutine export_ssh(state)
     ! Exports the sea surface height from HYCOM.
@@ -281,19 +298,16 @@ contains
     call set_field_values(field, real(temp(1:ii,1:jj,1,2)))
   end subroutine export_sst
 
-
-  subroutine import_total_flux(state)
-    ! Updates the total (radiative + enthalpy) flux (positive downward) in HYCOM.
-    use mod_cb_arrays, only: radflx
+  
+  subroutine export_density(state)
+    ! Exports the sea surface density from HYCOM.
+    use mod_cb_arrays, only: th3d
     use mod_dimensions, only: ii, jj
-    type(ESMF_State), intent(in) :: state
+    type(ESMF_State), intent(in out) :: state
     type(ESMF_Field) :: field
-    integer :: lb(2), ub(2)
-    real, pointer :: field_values(:,:)
-    call ESMF_StateGet(state, 'total_flux', field)
-    call get_field_values(field, field_values, lb, ub)
-    radflx(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
-  end subroutine import_total_flux
+    call ESMF_StateGet(state, 'rhow', field)
+    call set_field_values(field, real(th3d(1:ii,1:jj,1,2)))
+  end subroutine export_density
 
 
   subroutine export_u(state)

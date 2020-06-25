@@ -65,12 +65,12 @@ contains
     call write_grid_to_netcdf(grid, 'umwm_grid.nc')
 
     ! create and add import fields to import state
-    fields = [create_field(grid, 'wspd'),      &
-              create_field(grid, 'wdir'),      &
-              create_field(grid, 'rhoa'),      &
-              create_field(grid, 'u_current'), &
-              create_field(grid, 'v_current'), &
-              create_field(grid, 'rhow')       &
+    fields = [create_field(grid, 'wspd'), &
+              create_field(grid, 'wdir'), &
+              create_field(grid, 'rhoa'), &
+              create_field(grid, 'u'),    &
+              create_field(grid, 'v'),    &
+              create_field(grid, 'rhow')  &
               ]
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
@@ -99,7 +99,8 @@ contains
                            taux_form, tauy_form,         &
                            taux_skin, tauy_skin,         &
                            taux_ocntop, tauy_ocntop,     &
-                           taux_snl, tauy_snl
+                           taux_snl, tauy_snl,           &
+                           uc, vc
     use umwm_stokes, only: us, vs
 
     type(ESMF_GridComp) :: gridded_component
@@ -143,14 +144,31 @@ contains
       wdir(i) = field_values(mi(i),ni(i))
     end do
 
+    call ESMF_StateGet(import_state, 'u', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent(i = istart:iend)
+      uc(i) = field_values(mi(i),ni(i))
+    end do
+
+    call ESMF_StateGet(import_state, 'v', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent(i = istart:iend)
+      vc(i) = field_values(mi(i),ni(i))
+    end do
+
     call ESMF_StateGet(import_state, 'rhoa', field)
     call get_field_values(field, field_values, lb, ub)
     do concurrent(i = istart:iend)
       rhoa(i) = field_values(mi(i),ni(i))
     end do
 
+    call ESMF_StateGet(import_state, 'rhow', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent(i = istart:iend)
+      rhow(i) = field_values(mi(i),ni(i)) + 1030
+    end do
     rhorat = rhoa / rhow
-
+    
     call umwm_run(trim(start_time_string), trim(stop_time_string))
     
     call umwm_get_tile_bounds(mm, nm, ips, ipe, jps, jpe)
