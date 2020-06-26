@@ -1,6 +1,7 @@
 LIB = libearthvm.a
 
 OBJS = earthvm_assert.o \
+       earthvm_coupling.o \
        earthvm_datetime.o \
        earthvm_esmf.o \
        earthvm_events.o \

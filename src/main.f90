@@ -44,12 +44,13 @@ program main
                                   str('rhow'), &
                                   str('u'),    &
                                   str('v')])
-
+  
   call ocean % set_import_fields([str('taux'),           &
                                   str('tauy'),           &
                                   str('rainrate'),       &
                                   str('shortwave_flux'), & 
                                   str('total_flux')])
+
   call ocean % set_export_fields([str('sst'),  &
                                   str('rhow'), &
                                   str('u'),    &
