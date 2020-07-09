@@ -75,8 +75,9 @@ contains
 
     call write_grid_to_netcdf(grid, 'wrf_grid.nc')
 
-    fields = [create_field(grid, 'sst')]
-    call set_field_values(fields(1), head_grid % tsk(ips:ipe,jps:jpe))
+    fields = [create_field(grid, 'sst'),      &
+              create_field(grid, 'taux_atm'), &
+              create_field(grid, 'tauy_atm')]
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
 

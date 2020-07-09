@@ -124,7 +124,9 @@ contains
       create_field(grid, 'tauy'),           &
       create_field(grid, 'rainrate'),       &
       create_field(grid, 'shortwave_flux'), &
-      create_field(grid, 'total_flux')      &
+      create_field(grid, 'total_flux'),     &
+      create_field(grid, 'u_stokes'),       &
+      create_field(grid, 'v_stokes')        &
     ]
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
@@ -146,6 +148,7 @@ contains
     call import_precip(import_state)
     call import_shortwave_flux(import_state)
     call import_total_flux(import_state)
+    call import_stokes_drift(import_state)
 
     call hycom_run()
 
@@ -264,6 +267,26 @@ contains
     call get_field_values(field, field_values, lb, ub)
     radflx(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
   end subroutine import_total_flux
+
+  
+  subroutine import_stokes_drift(state)
+    ! Updates the surface Stokes drift vector
+    use mod_stokes, only: usd, vsd
+    use mod_dimensions, only: ii, jj
+    type(ESMF_State), intent(in) :: state
+    type(ESMF_Field) :: field
+    integer :: lb(2), ub(2)
+    real, pointer :: field_values(:,:)
+  
+    call ESMF_StateGet(state, 'u_stokes', field)
+    call get_field_values(field, field_values, lb, ub)
+    usd(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+    
+    call ESMF_StateGet(state, 'v_stokes', field)
+    call get_field_values(field, field_values, lb, ub)
+    vsd(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+  
+  end subroutine import_stokes_drift
 
 
   subroutine export_ssh(state)

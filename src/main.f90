@@ -13,13 +13,11 @@ program main
 
   type(earthvm_model_type) :: atmosphere, waves, ocean
   type(datetime) :: start_time, stop_time, time
-  integer :: local_pet
 
   start_time = datetime(2019, 8, 29)
   stop_time = datetime(2019, 9, 7)
 
   call earthvm_initialize()
-  local_pet = earthvm_get_local_pet()
 
   atmosphere = earthvm_model_type('wrf', start_time, stop_time, &
                                   45, set_wrf_services)
@@ -28,7 +26,10 @@ program main
   ocean = earthvm_model_type('hycom', start_time, stop_time, &
                              60, set_hycom_services)
 
-  call atmosphere % set_import_fields([str('sst')])
+  call atmosphere % set_import_fields([str('sst'),      &
+                                       str('taux_atm'), &
+                                       str('tauy_atm')])
+  
   call atmosphere % set_export_fields([str('taux'),           &
                                        str('tauy'),           &
                                        str('rainrate'),       &
@@ -45,11 +46,20 @@ program main
                                   str('u'),    &
                                   str('v')])
   
+  call waves % set_export_fields([str('u_stokes'), &
+                                  str('v_stokes'), &
+                                  str('taux_atm'), &
+                                  str('tauy_atm'), &
+                                  str('taux_ocn'), &
+                                  str('tauy_ocn')])
+  
   call ocean % set_import_fields([str('taux'),           &
                                   str('tauy'),           &
                                   str('rainrate'),       &
                                   str('shortwave_flux'), & 
-                                  str('total_flux')])
+                                  str('total_flux'),     &
+                                  str('u_stokes'),       &
+                                  str('v_stokes')])
 
   call ocean % set_export_fields([str('sst'),  &
                                   str('rhow'), &
@@ -70,8 +80,6 @@ program main
 
     ! run atmosphere for one time step
     if (atmosphere % get_current_time() < time) then
-      if (local_pet == 0) print *, &
-        time % strftime('%Y-%m-%d %H:%M:%S'), ': Running atmosphere'
       call atmosphere % run()
       call atmosphere % force(ocean)
       call atmosphere % force(waves)
@@ -80,20 +88,18 @@ program main
 
     ! run waves for one time step
     if (waves % get_current_time() < time) then
-      if (local_pet == 0) print *, &
-        time % strftime('%Y-%m-%d %H:%M:%S'), ': Running waves'
       call waves % run()
+      call waves % force(atmosphere)
+      call waves % force(ocean)
       call waves % write_to_netcdf()
     end if
 
     ! run ocean for one time step
     if (ocean % get_current_time() < time) then
-      if (local_pet == 0) print *, &
-        time % strftime('%Y-%m-%d %H:%M:%S'), ': Running ocean'
       call ocean % run()
-      call ocean % write_to_netcdf()
       call ocean % force(atmosphere)
       call ocean % force(waves)
+      call ocean % write_to_netcdf()
     end if
 
     ! advance master clock
