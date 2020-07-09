@@ -21,6 +21,7 @@ module earthvm_model
     type(ESMF_Clock) :: clock
     type(earthvm_regrid_type), allocatable :: regrid(:)
     type(str), allocatable :: import_fields(:), export_fields(:)
+    logical :: verbose = .true.
   contains
     procedure, pass(self) :: finalize
     procedure, pass(self) :: force
@@ -44,7 +45,7 @@ contains
 
   type(earthvm_model_type) function earthvm_model_constructor( &
     name, start_time, stop_time, time_step, user_services, &
-    import_fields, export_fields) result(self)
+    import_fields, export_fields, verbose) result(self)
     character(*), intent(in) :: name
     type(datetime), intent(in) :: start_time, stop_time
     integer, intent(in) :: time_step ! seconds
@@ -56,6 +57,7 @@ contains
       end subroutine user_services
     end interface
     type(str), intent(in), optional :: import_fields(:), export_fields(:)
+    logical, intent(in), optional :: verbose
     type(ESMF_Time) :: esmf_start_time, esmf_stop_time
     type(ESMF_TimeInterval) :: esmf_time_step
     integer :: rc
@@ -74,6 +76,8 @@ contains
     else
       allocate(self % export_fields(0))
     end if
+
+    if (present(verbose)) self % verbose = verbose
 
     call ESMF_TimeIntervalSet(timeinterval=esmf_time_step, s=time_step, rc=rc)
     call assert_success(rc)
@@ -241,7 +245,15 @@ contains
 
   subroutine run(self)
     class(earthvm_model_type), intent(in out) :: self
+    type(datetime) :: current_time
     integer :: rc
+
+    if (self % verbose) then
+      if (earthvm_get_local_pet() == 0) then
+        current_time = self % get_current_time()
+        print *, current_time % strftime('%Y-%m-%d %H:%M:%S') // ': Running ' // self % name
+      end if
+    end if
 
     ! call the run user method
     call ESMF_GridCompRun(gridComp    = self % gridded_component, &
@@ -259,6 +271,7 @@ contains
 
     call ESMF_LogWrite('Model ' // self % name // ' ran', ESMF_LOGMSG_INFO)
     call ESMF_LogFlush()
+
   end subroutine run
 
 
