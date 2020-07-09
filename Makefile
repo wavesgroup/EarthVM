@@ -56,7 +56,7 @@ download_umwm:
 	git clone https://github.com/umwm/umwm
 
 hycom:
-	cd $(HYCOM) && ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM" TYPE=mpi make
+	cd $(HYCOM) && ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM -DSTOKES" TYPE=mpi make
 	ar rcs $(HYCOM)/libhycom.a $(HYCOM)/*.o
 
 umwm:
