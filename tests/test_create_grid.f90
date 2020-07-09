@@ -9,7 +9,8 @@ program test_create_grid
   type(ESMF_DistGrid) :: distgrid
   type(ESMF_Grid) :: grid
   type(ESMF_Field) :: fields(3)
-  integer :: im, jm, i, j
+  integer :: i, j
+  integer, parameter :: im = 100, jm = 100
   real, allocatable :: lon(:,:), lat(:,:)
   integer, allocatable :: mask(:,:)
   real :: lon1, lon2, lat1, lat2, dlon, dlat
