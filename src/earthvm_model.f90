@@ -14,12 +14,19 @@ module earthvm_model
   private
   public :: earthvm_model_type
 
+  type :: earthvm_forcing_type
+    character(:), allocatable :: source_field
+    character(:), allocatable :: target_model
+    character(:), allocatable :: target_field
+  end type earthvm_forcing_type
+
   type :: earthvm_model_type
     character(:), allocatable :: name
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
     type(earthvm_regrid_type), allocatable :: regrid(:)
+    type(earthvm_forcing_type), allocatable :: forcing(:)
     type(str), allocatable :: import_fields(:), export_fields(:)
     logical :: verbose = .true.
   contains
@@ -65,17 +72,11 @@ contains
 
     allocate(self % regrid(0))
 
-    if (present(import_fields)) then
-      self % import_fields = import_fields
-    else
-      allocate(self % import_fields(0))
-    end if
-
-    if (present(export_fields)) then
-      self % export_fields = export_fields
-    else
-      allocate(self % export_fields(0))
-    end if
+    self % import_fields = [str ::]
+    if (present(import_fields)) self % import_fields = import_fields
+    
+    self % export_fields = [str ::]
+    if (present(export_fields)) self % export_fields = export_fields
 
     if (present(verbose)) self % verbose = verbose
 
