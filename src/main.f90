@@ -1,11 +1,9 @@
 program main
-
+  ! Fully coupled atmosphere-wave-ocean driver.
   use earthvm_datetime, only: datetime, timedelta
   use earthvm_hycom, only: set_hycom_services => set_services
   use earthvm_model, only: earthvm_model_type
-  use earthvm_state, only: earthvm_initialize, earthvm_finalize, &
-                           earthvm_get_local_pet
-  use earthvm_str, only: str
+  use earthvm_state, only: earthvm_initialize, earthvm_finalize
   use earthvm_umwm, only: set_umwm_services => set_services
   use earthvm_wrf, only: set_wrf_services => set_services
 
@@ -19,52 +17,31 @@ program main
 
   call earthvm_initialize()
 
-  atmosphere = earthvm_model_type('wrf', start_time, stop_time, &
-                                  45, set_wrf_services)
-  waves = earthvm_model_type('umwm', start_time, stop_time, &
-                             60, set_umwm_services)
-  ocean = earthvm_model_type('hycom', start_time, stop_time, &
-                             60, set_hycom_services)
+  atmosphere = earthvm_model_type('wrf', start_time, stop_time, 45, set_wrf_services)
+  waves = earthvm_model_type('umwm', start_time, stop_time, 60, set_umwm_services)
+  ocean = earthvm_model_type('hycom', start_time, stop_time, 60, set_hycom_services)
 
-  !call atmosphere % set_forcing('sst', ocean, 'sst')
+  ! Atmosphere coupling
+  call atmosphere % set_forcing('wspd', waves, 'wspd')
+  call atmosphere % set_forcing('wdir', waves, 'wdir')
+  call atmosphere % set_forcing('rhoa', waves, 'rhoa')
+  call atmosphere % set_forcing('shortwave_flux', ocean, 'shortwave_flux')
+  call atmosphere % set_forcing('total_flux', ocean, 'total_flux')
+  call atmosphere % set_forcing('rainrate', ocean, 'rainrate')
+ 
+  ! Wave coupling
+  call waves % set_forcing('taux_atm', atmosphere, 'taux_wav')
+  call waves % set_forcing('tauy_atm', atmosphere, 'tauy_wav')
+  call waves % set_forcing('taux_ocn', ocean, 'taux')
+  call waves % set_forcing('tauy_ocn', ocean, 'tauy')
+  call waves % set_forcing('u_stokes', ocean, 'u_stokes')
+  call waves % set_forcing('v_stokes', ocean, 'v_stokes')
 
-  call atmosphere % set_import_fields([str('sst'),      &
-                                       str('taux_atm'), &
-                                       str('tauy_atm')])
-  
-  call atmosphere % set_export_fields([str('rainrate'),       &
-                                       str('shortwave_flux'), &
-                                       str('total_flux'),     &
-                                       str('wspd'),           &
-                                       str('wdir'),           & 
-                                       str('rhoa')])
-  
-  call waves % set_import_fields([str('wspd'), &
-                                  str('wdir'), &
-                                  str('rhoa'), &
-                                  str('rhow'), &
-                                  str('u'),    &
-                                  str('v')])
-  
-  call waves % set_export_fields([str('u_stokes'), &
-                                  str('v_stokes'), &
-                                  str('taux_atm'), &
-                                  str('tauy_atm'), &
-                                  str('taux_ocn'), &
-                                  str('tauy_ocn')])
-  
-  call ocean % set_import_fields([str('taux_ocn'),       &
-                                  str('tauy_ocn'),       &
-                                  str('rainrate'),       &
-                                  str('shortwave_flux'), & 
-                                  str('total_flux'),     &
-                                  str('u_stokes'),       &
-                                  str('v_stokes')])
-
-  call ocean % set_export_fields([str('sst'),  &
-                                  str('rhow'), &
-                                  str('u'),    &
-                                  str('v')])
+  ! Ocean coupling
+  call ocean % set_forcing('sst', atmosphere, 'sst')
+  call ocean % set_forcing('u', waves, 'u')
+  call ocean % set_forcing('v', waves, 'v')
+  call ocean % set_forcing('rhow', waves, 'rhow')
 
   call atmosphere % initialize()
   call waves % initialize()
@@ -74,7 +51,7 @@ program main
   call atmosphere % force(waves)
   call ocean % force(atmosphere)
   call ocean % force(waves)
-      
+     
   time = start_time
   do while (time <= stop_time)
 
