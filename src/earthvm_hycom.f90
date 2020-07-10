@@ -112,16 +112,16 @@ contains
     call set_field_values(fields(1), real(u(1:ii,1:jj,1,1) + ubavg(1:ii,1:jj,1)))
     call set_field_values(fields(2), real(v(1:ii,1:jj,1,1) + vbavg(1:ii,1:jj,1)))
     call set_field_values(fields(3), real(srfhgt(1:ii,1:jj)) / 9.8)
-    call set_field_values(fields(4), real(temp(1:ii,1:jj,1,1)))
-    call set_field_values(fields(5), real(saln(1:ii,1:jj,1,1)))
+    call set_field_values(fields(4), real(saln(1:ii,1:jj,1,1)))
+    call set_field_values(fields(5), real(temp(1:ii,1:jj,1,1)))
     call set_field_values(fields(6), real(th3d(1:ii,1:jj,1,1)))
 
     call ESMF_StateAdd(export_state, fields, rc=rc)
     call assert_success(rc)
 
     fields = [                              &
-      create_field(grid, 'taux_ocn'),           &
-      create_field(grid, 'tauy_ocn'),           &
+      create_field(grid, 'taux'),           &
+      create_field(grid, 'tauy'),           &
       create_field(grid, 'rainrate'),       &
       create_field(grid, 'shortwave_flux'), &
       create_field(grid, 'total_flux'),     &
@@ -207,7 +207,7 @@ contains
     type(ESMF_Field) :: field
     integer :: lb(2), ub(2)
     real, pointer :: field_values(:,:)
-    call ESMF_StateGet(state, 'taux_ocn', field)
+    call ESMF_StateGet(state, 'taux', field)
     call get_field_values(field, field_values, lb, ub)
     taux(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
   end subroutine import_taux
@@ -221,7 +221,7 @@ contains
     type(ESMF_Field) :: field
     integer :: lb(2), ub(2)
     real, pointer :: field_values(:,:)
-    call ESMF_StateGet(state, 'tauy_ocn', field)
+    call ESMF_StateGet(state, 'tauy', field)
     call get_field_values(field, field_values, lb, ub)
     tauy(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
   end subroutine import_tauy
@@ -271,7 +271,7 @@ contains
   
   subroutine import_stokes_drift(state)
     ! Updates the surface Stokes drift vector
-    use mod_stokes, only: usd, vsd
+    use mod_stokes, only: usd, vsd, usds, vsds
     use mod_dimensions, only: ii, jj
     type(ESMF_State), intent(in) :: state
     type(ESMF_Field) :: field
@@ -281,10 +281,12 @@ contains
     call ESMF_StateGet(state, 'u_stokes', field)
     call get_field_values(field, field_values, lb, ub)
     usd(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+    usds(1:ii,1:jj) = field_values(lb(1):ub(1),lb(2):ub(2))
     
     call ESMF_StateGet(state, 'v_stokes', field)
     call get_field_values(field, field_values, lb, ub)
     vsd(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
+    vsds(1:ii,1:jj) = field_values(lb(1):ub(1),lb(2):ub(2))
   
   end subroutine import_stokes_drift
 
