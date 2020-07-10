@@ -3,21 +3,18 @@ module earthvm_model
   use earthvm_assert, only: assert_success
   use earthvm_datetime, only: datetime
   use earthvm_esmf, only: get_itemlist_from_state
-  use earthvm_events
   use earthvm_io, only: write_fields_to_netcdf
-  use earthvm_state, only: earthvm_get_local_pet, earthvm_get_pet_count, &
-                           earthvm_get_vm
+  use earthvm_state, only: earthvm_get_local_pet, earthvm_get_pet_count, earthvm_get_vm
   use earthvm_regrid, only: earthvm_regrid_type
-  use earthvm_str, only: str
   implicit none
 
   private
   public :: earthvm_model_type
 
   type :: earthvm_forcing_type
-    character(:), allocatable :: source_field
-    character(:), allocatable :: target_model
-    character(:), allocatable :: target_field
+    character(:), allocatable :: source_field_name
+    character(:), allocatable :: target_model_name
+    character(:), allocatable :: target_field_name
   end type earthvm_forcing_type
 
   type :: earthvm_model_type
@@ -27,8 +24,7 @@ module earthvm_model
     type(ESMF_Clock) :: clock
     type(earthvm_regrid_type), allocatable :: regrid(:)
     type(earthvm_forcing_type), allocatable :: forcing(:)
-    type(str), allocatable :: import_fields(:), export_fields(:)
-    logical :: verbose = .true.
+    logical :: verbose = .false.
   contains
     procedure, pass(self) :: finalize
     procedure, pass(self) :: force
@@ -38,8 +34,7 @@ module earthvm_model
     procedure, pass(self) :: get_field_data
     procedure, pass(self) :: initialize
     procedure, pass(self) :: run
-    procedure, pass(self) :: set_import_fields
-    procedure, pass(self) :: set_export_fields
+    procedure, pass(self) :: set_forcing
     procedure, pass(self) :: set_services
     procedure, pass(self) :: write_to_netcdf
   end type earthvm_model_type
@@ -51,8 +46,7 @@ module earthvm_model
 contains
 
   type(earthvm_model_type) function earthvm_model_constructor( &
-    name, start_time, stop_time, time_step, user_services, &
-    import_fields, export_fields, verbose) result(self)
+    name, start_time, stop_time, time_step, user_services, verbose) result(self)
     character(*), intent(in) :: name
     type(datetime), intent(in) :: start_time, stop_time
     integer, intent(in) :: time_step ! seconds
@@ -63,22 +57,17 @@ contains
         integer, intent(out) :: rc
       end subroutine user_services
     end interface
-    type(str), intent(in), optional :: import_fields(:), export_fields(:)
     logical, intent(in), optional :: verbose
     type(ESMF_Time) :: esmf_start_time, esmf_stop_time
     type(ESMF_TimeInterval) :: esmf_time_step
     integer :: rc
+    
     self % name = name
+    
+    if (present(verbose)) self % verbose = verbose
 
     allocate(self % regrid(0))
-
-    self % import_fields = [str ::]
-    if (present(import_fields)) self % import_fields = import_fields
-    
-    self % export_fields = [str ::]
-    if (present(export_fields)) self % export_fields = export_fields
-
-    if (present(verbose)) self % verbose = verbose
+    allocate(self % forcing(0))
 
     call ESMF_TimeIntervalSet(timeinterval=esmf_time_step, s=time_step, rc=rc)
     call assert_success(rc)
@@ -140,19 +129,28 @@ contains
     ! to the native model data structure.
     class(earthvm_model_type), intent(in out) :: self, target_model
     integer :: n
-    do n = 1, size(self % export_fields)
-      if (any(self % export_fields(n) == target_model % import_fields)) then
-        call self % force_single_field(target_model, self % export_fields(n) % value)
+
+    ! loop over forcings on this model
+    do n = 1, size(self % forcing)
+      if (self % forcing(n) % target_model_name == target_model % name) then
+        call self % force_single_field(self % forcing(n) % source_field_name, &
+                                       target_model,                          &
+                                       self % forcing(n) % target_field_name)
       end if
     end do
+
   end subroutine force
 
 
-  subroutine force_single_field(self, target_model, field_name)
+  subroutine force_single_field(self, source_field_name, target_model, target_field_name)
     ! Regrids a single field from this to target model.
-    class(earthvm_model_type), intent(in out) :: self, target_model
-    character(*), intent(in) :: field_name
-    type(ESMF_Field) :: source_field, destination_field
+    ! Source and target fields can have different names, but they both must be
+    ! created and present in their respective model export and import states.
+    class(earthvm_model_type), intent(in out) :: self
+    character(*), intent(in) :: source_field_name
+    class(earthvm_model_type), intent(in out) :: target_model
+    character(*), intent(in) :: target_field_name
+    type(ESMF_Field) :: source_field, target_field
     logical :: found
     integer :: n
 
@@ -171,14 +169,21 @@ contains
       n = size(self % regrid)
     end if
 
-    source_field = self % get_field(field_name)
-    destination_field = target_model % get_field(field_name)
+    source_field = self % get_field(source_field_name)
+    target_field = target_model % get_field(target_field_name)
 
-    if (.not. self % regrid(n) % initialized) then
-      call self % regrid(n) % regrid_field_store(source_field, destination_field)
+    if (self % verbose) then
+      if (earthvm_get_local_pet() == 0) then
+        print *, 'Regridding ' // source_field_name // ' from ' // self % name &
+          // ' to ' // target_field_name // ' on ' // target_model % name
+      end if
     end if
 
-    call self % regrid(n) % regrid_field(source_field, destination_field)
+    if (.not. self % regrid(n) % initialized) then
+      call self % regrid(n) % regrid_field_store(source_field, target_field)
+    end if
+
+    call self % regrid(n) % regrid_field(source_field, target_field)
 
   end subroutine force_single_field
 
@@ -291,21 +296,22 @@ contains
     call ESMF_LogFlush()
   end subroutine finalize
 
-
-  subroutine set_import_fields(self, fields)
+  
+  subroutine set_forcing(self, source_field_name, target_model, target_field_name)
+    ! Adds a forcing configuration to the list of forcings.
     class(earthvm_model_type), intent(in out) :: self
-    type(str), intent(in) :: fields(:)
-    self % import_fields = fields
-  end subroutine set_import_fields
+    character(*), intent(in) :: source_field_name
+    class(earthvm_model_type), intent(in) :: target_model
+    character(*), intent(in) :: target_field_name
+    character(:), allocatable :: target_model_name
+    
+    target_model_name = target_model % name ! needed to work around a bug in gfortran-9.2.0
+    self % forcing = [self % forcing, &
+      earthvm_forcing_type(source_field_name, target_model_name, target_field_name)]
 
+  end subroutine set_forcing
 
-  subroutine set_export_fields(self, fields)
-    class(earthvm_model_type), intent(in out) :: self
-    type(str), intent(in) :: fields(:)
-    self % export_fields = fields
-  end subroutine set_export_fields
-
-
+  
   subroutine set_services(self, user_routine)
     class(earthvm_model_type), intent(in out) :: self
     interface
