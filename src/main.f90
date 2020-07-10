@@ -26,13 +26,13 @@ program main
   ocean = earthvm_model_type('hycom', start_time, stop_time, &
                              60, set_hycom_services)
 
+  !call atmosphere % set_forcing('sst', ocean, 'sst')
+
   call atmosphere % set_import_fields([str('sst'),      &
                                        str('taux_atm'), &
                                        str('tauy_atm')])
   
-  call atmosphere % set_export_fields([str('taux'),           &
-                                       str('tauy'),           &
-                                       str('rainrate'),       &
+  call atmosphere % set_export_fields([str('rainrate'),       &
                                        str('shortwave_flux'), &
                                        str('total_flux'),     &
                                        str('wspd'),           &
@@ -53,8 +53,8 @@ program main
                                   str('taux_ocn'), &
                                   str('tauy_ocn')])
   
-  call ocean % set_import_fields([str('taux'),           &
-                                  str('tauy'),           &
+  call ocean % set_import_fields([str('taux_ocn'),       &
+                                  str('tauy_ocn'),       &
                                   str('rainrate'),       &
                                   str('shortwave_flux'), & 
                                   str('total_flux'),     &
@@ -76,7 +76,7 @@ program main
   call ocean % force(waves)
       
   time = start_time
-  do
+  do while (time <= stop_time)
 
     ! run atmosphere for one time step
     if (atmosphere % get_current_time() < time) then
@@ -104,7 +104,6 @@ program main
 
     ! advance master clock
     time = time + timedelta(seconds=1)
-    if (time > stop_time) exit
 
   end do
 

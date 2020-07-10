@@ -120,8 +120,8 @@ contains
     call assert_success(rc)
 
     fields = [                              &
-      create_field(grid, 'taux'),           &
-      create_field(grid, 'tauy'),           &
+      create_field(grid, 'taux_ocn'),           &
+      create_field(grid, 'tauy_ocn'),           &
       create_field(grid, 'rainrate'),       &
       create_field(grid, 'shortwave_flux'), &
       create_field(grid, 'total_flux'),     &
@@ -207,7 +207,7 @@ contains
     type(ESMF_Field) :: field
     integer :: lb(2), ub(2)
     real, pointer :: field_values(:,:)
-    call ESMF_StateGet(state, 'taux', field)
+    call ESMF_StateGet(state, 'taux_ocn', field)
     call get_field_values(field, field_values, lb, ub)
     taux(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
   end subroutine import_taux
@@ -221,7 +221,7 @@ contains
     type(ESMF_Field) :: field
     integer :: lb(2), ub(2)
     real, pointer :: field_values(:,:)
-    call ESMF_StateGet(state, 'tauy', field)
+    call ESMF_StateGet(state, 'tauy_ocn', field)
     call get_field_values(field, field_values, lb, ub)
     tauy(1:ii,1:jj,1) = field_values(lb(1):ub(1),lb(2):ub(2))
   end subroutine import_tauy
