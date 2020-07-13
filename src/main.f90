@@ -1,11 +1,11 @@
 program main
   ! Fully coupled atmosphere-wave-ocean driver.
   use earthvm_datetime, only: datetime, timedelta
-  use earthvm_hycom, only: set_hycom_services => set_services
   use earthvm_model, only: earthvm_model_type
   use earthvm_state, only: earthvm_initialize, earthvm_finalize
-  use earthvm_umwm, only: set_umwm_services => set_services
   use earthvm_wrf, only: set_wrf_services => set_services
+  use earthvm_umwm, only: set_umwm_services => set_services
+  use earthvm_hycom, only: set_hycom_services => set_services
 
   implicit none
 
