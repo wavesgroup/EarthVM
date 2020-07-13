@@ -40,24 +40,21 @@ cd wrf-4.2
 ./compile em_real
 ```
 
-### Download and build UMWM
+### Download UMWM and HYCOM
 
 ```
-git clone https://github.com/umwm/umwm
-make umwm
+make download_umwm
+make download_hycom
 ```
 
-### Download and build HYCOM
+### Build EarthVM
 
 ```
-git clone -b 2.3.01 https://github.com/hycom/hycom-src hycom-2.3.01
-cd hycom-2.3.01
-ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1" TYPE=mpi make
+make
 ```
 
-### Download and build UMWM
+### Run tests
 
 ```
-git clone --recursive https://github.com/umwm/umwm
-cd umwm
+make test
 ```

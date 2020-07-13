@@ -50,11 +50,14 @@ clean_hycom:
 clean_umwm:
 	$(MAKE) clean --directory=umwm
 
-download_hycom:
-	git clone -b 2.3.01 https://github.com/hycom/hycom-src hycom-2.3.01
+download_wrf:
+	git clone -b v4.2 https://github.com/wrf-model/WRF wrf-4.2
 
 download_umwm:
 	git clone https://github.com/umwm/umwm
+
+download_hycom:
+	git clone -b 2.3.01 https://github.com/hycom/hycom-src hycom-2.3.01
 
 hycom:
 	cd $(HYCOM) && ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM -DSTOKES" TYPE=mpi make
