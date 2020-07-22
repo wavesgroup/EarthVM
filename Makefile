@@ -50,6 +50,9 @@ clean_hycom:
 clean_umwm:
 	$(MAKE) clean --directory=umwm
 
+download_esmf:
+	git clone -b ESMF_8_0_1 https://github.com/esmf-org/esmf
+
 download_wrf:
 	git clone -b v4.2 https://github.com/wrf-model/WRF wrf-4.2
 
