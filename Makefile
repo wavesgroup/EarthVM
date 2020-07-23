@@ -1,11 +1,21 @@
 # EarthVM Makefile
 
 FC = mpif90
+
+# gfortran, debug
 #FFLAGS = -Wall -O0 -g -fbacktrace -fconvert=big-endian # big-endian needed for WRF
-FFLAGS = -march=native -ffast-math -Wall -funroll-loops -fconvert=big-endian
+
+# gfortran, optimized
+#FFLAGS = -march=native -ffast-math -Wall -funroll-loops -fconvert=big-endian
+
+# ifort, optimized
+FFLAGS = -O3 -convert big_endian
+
 CPPFLAGS = -I$(ESMF_INCLUDE) \
-           -I$(WRF)/main \
 	   -I$(WRF)/external/esmf_time_f90 \
+           -I$(WRF)/frame \
+           -I$(WRF)/main \
+           -I$(WRF)/share \
 	   -I$(UMWM) \
 	   -I$(HYCOM) \
 	   -I$(NETCDF)/include
@@ -63,7 +73,8 @@ download_hycom:
 	git clone -b 2.3.01 https://github.com/hycom/hycom-src hycom-2.3.01
 
 hycom:
-	cd $(HYCOM) && ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM -DSTOKES" TYPE=mpi make
+	#cd $(HYCOM) && ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM -DSTOKES" TYPE=mpi make
+	cd $(HYCOM) && ARCH=intelsse-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM -DSTOKES" TYPE=mpi make
 	ar rcs $(HYCOM)/libhycom.a $(HYCOM)/*.o
 
 umwm:
