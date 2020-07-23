@@ -338,7 +338,7 @@ contains
     character(:), allocatable :: filename
     integer :: n
 
-    fields = [ESMF_Field::]
+    allocate(fields(0))
 
     field_names = get_itemlist_from_state(self % import_state)
     do n = 1, size(field_names)
