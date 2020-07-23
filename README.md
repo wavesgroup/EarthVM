@@ -58,3 +58,11 @@ make
 ```
 make test
 ```
+
+## Notes
+
+* Building with Intel compilers requires ESMF <= v8.0.0
+due to unsupported C++ features.
+* Building WRF on ppc64 with at-12.0 (IBM Advanced Toolchain) 
+requires passing `-Uvector` to cpp.
+
