@@ -69,9 +69,6 @@ download_wrf:
 download_umwm:
 	git clone https://github.com/umwm/umwm
 
-download_hycom:
-	git clone -b 2.3.01 https://github.com/hycom/hycom-src hycom-2.3.01
-
 hycom:
 	#cd $(HYCOM) && ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM -DSTOKES" TYPE=mpi make
 	cd $(HYCOM) && ARCH=intelsse-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM -DSTOKES" TYPE=mpi make
