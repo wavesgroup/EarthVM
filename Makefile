@@ -6,10 +6,13 @@ FC = mpif90
 #FFLAGS = -Wall -O0 -g -fbacktrace -fconvert=big-endian # big-endian needed for WRF
 
 # gfortran, optimized
-#FFLAGS = -march=native -ffast-math -Wall -funroll-loops -fconvert=big-endian
+FFLAGS = -march=native -ffast-math -Wall -funroll-loops -fconvert=big-endian
+
+# IBM advanced toolchainm optimized
+#FFLAGS = -mcpu=native -ffast-math -Wall -funroll-loops -fconvert=big-endian
 
 # ifort, optimized
-FFLAGS = -O3 -convert big_endian
+#FFLAGS = -O3 -convert big_endian
 
 CPPFLAGS = -I$(ESMF_INCLUDE) \
 	   -I$(WRF)/external/esmf_time_f90 \
@@ -69,12 +72,9 @@ download_wrf:
 download_umwm:
 	git clone https://github.com/umwm/umwm
 
-download_hycom:
-	git clone -b 2.3.01 https://github.com/hycom/hycom-src hycom-2.3.01
-
 hycom:
-	#cd $(HYCOM) && ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM -DSTOKES" TYPE=mpi make
-	cd $(HYCOM) && ARCH=intelsse-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM -DSTOKES" TYPE=mpi make
+	cd $(HYCOM) && ARCH=intelGF-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM -DSTOKES" TYPE=mpi make
+	#cd $(HYCOM) && ARCH=intelsse-impi-sm-relo CPP_EXTRAS="-DEOS_SIG2=1 -DEOS_7T=1 -DEARTHVM -DSTOKES" TYPE=mpi make
 	ar rcs $(HYCOM)/libhycom.a $(HYCOM)/*.o
 
 umwm:

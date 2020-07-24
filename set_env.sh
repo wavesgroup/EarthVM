@@ -10,7 +10,7 @@ export HYCOM=`pwd`/hycom-2.3.01
 # ESMF configuration
 export ESMF_OS=Linux
 export ESMF_DIR=`pwd`/esmf
-export ESMF_COMPILER=intel
+export ESMF_COMPILER=gfortran
 export ESMF_ABI=64
 export ESMF_BOPT=O
 export ESMF_COMM=openmpi
