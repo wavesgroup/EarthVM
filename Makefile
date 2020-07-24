@@ -3,10 +3,10 @@
 FC = mpif90
 
 # gfortran, debug
-#FFLAGS = -Wall -O0 -g -fbacktrace -fconvert=big-endian # big-endian needed for WRF
+FFLAGS = -Wall -O0 -g -fbacktrace -fbounds-check -fconvert=big-endian # big-endian needed for WRF
 
 # gfortran, optimized
-FFLAGS = -march=native -ffast-math -Wall -funroll-loops -fconvert=big-endian
+#FFLAGS = -march=native -ffast-math -Wall -funroll-loops -fconvert=big-endian
 
 # IBM advanced toolchainm optimized
 #FFLAGS = -mcpu=native -ffast-math -Wall -funroll-loops -fconvert=big-endian

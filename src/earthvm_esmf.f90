@@ -118,7 +118,7 @@ contains
                            rc              = rc)
     call assert_success(rc)
 
-    lon_ptr(lb(1):ub(1), lb(2):ub(2)) = lon(lb(1):ub(1), lb(2):ub(2))
+    lon_ptr(lb(1):ub(1), lb(2):ub(2)) = lon
 
     call ESMF_GridGetCoord(grid            = grid,                   &
                            localDE         = 0,                      &
@@ -130,7 +130,7 @@ contains
                            rc              = rc)
     call assert_success(rc)
 
-    lat_ptr(lb(1):ub(1), lb(2):ub(2)) = lat(lb(1):ub(1), lb(2):ub(2))
+    lat_ptr(lb(1):ub(1), lb(2):ub(2)) = lat
 
     call ESMF_GridAddItem(grid       = grid,                   &
                           staggerloc = ESMF_STAGGERLOC_CENTER, &
@@ -146,7 +146,7 @@ contains
                           rc         = rc)
     call assert_success(rc)
 
-    mask_ptr(lb(1):ub(1), lb(2):ub(2)) = mask(lb(1):ub(1), lb(2):ub(2))
+    mask_ptr(lb(1):ub(1), lb(2):ub(2)) = mask
 
   end function create_grid
 
