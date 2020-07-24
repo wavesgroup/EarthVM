@@ -40,11 +40,10 @@ cd wrf-4.2
 ./compile em_real
 ```
 
-### Download UMWM and HYCOM
+### Download UMWM
 
 ```
 make download_umwm
-make download_hycom
 ```
 
 ### Build EarthVM
