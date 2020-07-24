@@ -69,9 +69,9 @@ contains
 
     distgrid = create_distgrid([ips, jps], [ipe, jpe], [ids, jds], [ide, jde])
     grid = create_grid(distgrid, 'WRF grid', &
-                       lon=head_grid % xlong(ids:ide, jds:jde), &
-                       lat=head_grid % xlat(ids:ide, jds:jde), &
-                       mask=nint(head_grid % xland(ids:ide, jds:jde) - 1))
+                       lon=head_grid % xlong(ips:ipe, jps:jpe), &
+                       lat=head_grid % xlat(ips:ipe, jps:jpe), &
+                       mask=nint(head_grid % xland(ips:ipe, jps:jpe) - 1))
 
     call write_grid_to_netcdf(grid, 'wrf_grid.nc')
 

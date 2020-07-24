@@ -61,7 +61,8 @@ contains
     call umwm_get_tile_bounds(mm, nm, ips, ipe, jps, jpe)
 
     distgrid = create_distgrid([ips, jps], [ipe, jpe], [1, 1], [mm, nm])
-    grid = create_grid(distgrid, 'UMWM grid', lon, lat, mask)
+    grid = create_grid(distgrid, 'UMWM grid', lon(ips:ipe,jps:jpe), &
+                       lat(ips:ipe,jps:jpe), mask(ips:ipe,jps:jpe))
     call write_grid_to_netcdf(grid, 'umwm_grid.nc')
 
     ! create and add import fields to import state

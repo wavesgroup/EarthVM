@@ -97,7 +97,8 @@ contains
     end do
 
     distgrid = create_distgrid([ips, jps], [ipe, jpe], [ids, jds], [ide, jde])
-    grid = create_grid(distgrid, 'HYCOM grid', lon, lat, mask)
+    grid = create_grid(distgrid, 'HYCOM grid', lon(ips:ipe,jps:jpe), &
+                       lat(ips:ipe,jps:jpe), mask(ips:ipe,jps:jpe))
     call write_grid_to_netcdf(grid, 'hycom_grid.nc')
 
     fields = [                   &
