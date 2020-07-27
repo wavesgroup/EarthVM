@@ -51,7 +51,8 @@ contains
     integer :: ids, ide, jds, jde, kds, kde
     integer :: ims, ime, jms, jme, kms, kme
     integer :: ips, ipe, jps, jpe, kps, kpe
-    print *, 'In wrf_component_init'
+
+    print *, 'in wrf model_init'
 
     call wrf_set_dm_communicator(earthvm_get_mpicomm())
 
@@ -172,6 +173,8 @@ contains
     real, pointer :: field_values(:,:)
     integer :: lb(2), ub(2)
 
+    print *, 'in wrf model_run'
+    
     call get_ijk_from_grid(head_grid, &
                            ids, ide, jds, jde, kds, kde, &
                            ims, ime, jms, jme, kms, kme, &

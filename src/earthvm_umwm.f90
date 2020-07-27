@@ -52,6 +52,8 @@ contains
     type(ESMF_Field), allocatable :: fields(:)
     integer :: ips, ipe, jps, jpe
     integer :: local_pet, pet_count
+    
+    print *, 'in umwm model_init'
 
     local_pet = earthvm_get_local_pet()
     pet_count = earthvm_get_pet_count()
@@ -131,7 +133,9 @@ contains
 
     start_time_string(11:11) = ' '
     stop_time_string(11:11) = ' '
-    
+
+    print *, 'before import fields'
+
     ! set import field values to UMWM arrays
     call ESMF_StateGet(import_state, 'wspd', field)
     call get_field_values(field, field_values, lb, ub)
