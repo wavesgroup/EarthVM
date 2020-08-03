@@ -1294,6 +1294,13 @@ state   real    p_top          -       misc         -         -     irh       "p
 state logical got_var_sso	-	misc	    -	      -     i02r  "got_var_sso"		     "whether VAR_SSO was included in WPS output (beginning V3.4)" ""
 state logical v4_metgrid 	-	misc	    -	      -     -     "v4_metgrid"		     "for real, T/F: identify if this is v4 metgrid data" ""
 
+# EarthVM variables for coupling with ocean waves and circulation
+state real earthvm_taux      ij misc 1 - h "earthvm_taux"      "x-component of wind stress from EarthVM" "N/m^2"
+state real earthvm_tauy      ij misc 1 - h "earthvm_tauy"      "y-component of wind stress from EarthVM" "N/m^2"
+state real earthvm_u_current ij misc 1 - h "earthvm_u_current" "x-component of Eulerian surface current from EarthVM" "m/s"
+state real earthvm_v_current ij misc 1 - h "earthvm_v_current" "y-component of Eulerian surface current from EarthVM" "m/s"
+state real earthvm_u_stokes  ij misc 1 - h "earthvm_u_stokes"  "x-component of surface Stokes drift from EarthVM" "m/s"
+state real earthvm_v_stokes  ij misc 1 - h "earthvm_v_stokes"  "y-component of surface Stokes drift from EarthVM" "m/s"
 
 #BSINGH - Adding all these variables for CuP scheme[any var before t00]
 state   real    lat_ll_t       -       dyn_em       -         -     ir       "lat_ll_t"              "latitude lower left, temp point" "degrees"
