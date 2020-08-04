@@ -76,9 +76,13 @@ contains
 
     call write_grid_to_netcdf(grid, 'wrf_grid.nc')
 
-    fields = [create_field(grid, 'sst'),        &
-              create_field(grid, 'taux_wav'), &
-              create_field(grid, 'tauy_wav')]
+    fields = [create_field(grid, 'sst'),       &
+              create_field(grid, 'taux_wav'),  &
+              create_field(grid, 'tauy_wav'),  &
+              create_field(grid, 'u_current'), &
+              create_field(grid, 'v_current'), &
+              create_field(grid, 'u_stokes'),  &
+              create_field(grid, 'v_stokes')]
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
 
@@ -191,6 +195,42 @@ contains
     call get_field_values(field, field_values, lb, ub)
     do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
       head_grid % tsk(i,j) = field_values(i,j) + 273.15
+    end do
+
+    call ESMF_StateGet(import_state, 'taux_wav', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
+      head_grid % earthvm_taux(i,j) = field_values(i,j)
+    end do
+
+    call ESMF_StateGet(import_state, 'tauy_wav', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
+      head_grid % earthvm_tauy(i,j) = field_values(i,j)
+    end do
+
+    call ESMF_StateGet(import_state, 'u_current', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
+      head_grid % earthvm_u_current(i,j) = field_values(i,j)
+    end do
+
+    call ESMF_StateGet(import_state, 'v_current', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
+      head_grid % earthvm_v_current(i,j) = field_values(i,j)
+    end do
+
+    call ESMF_StateGet(import_state, 'u_stokes', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
+      head_grid % earthvm_u_stokes(i,j) = field_values(i,j)
+    end do
+
+    call ESMF_StateGet(import_state, 'v_stokes', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
+      head_grid % earthvm_v_stokes(i,j) = field_values(i,j)
     end do
 
     call set_wrf_clock(clock)
