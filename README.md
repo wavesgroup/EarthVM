@@ -24,26 +24,32 @@ export ESMF_OPENMP=OFF
 This will download esmf-8.0.0 and print the information about build parameters:
 
 ```
-git clone -b ESMF_8_0_0 --depth 1 https://git.code.sf.net/p/esmf/esmf esmf-8.0.0
-cd esmf-8.0.0
+make download_esmf
+cd esmf
 make info 
 make
 make check
 ```
 
-### Download and build WRF
+### Build WRF
 
 ```
-git clone -b v4.2 --depth 1 https://github.com/wrf-model/wrf wrf-4.2
-cd wrf-4.2
+cd wrf-4.2-1
 ./configure
 ./compile em_real
 ```
 
-### Download UMWM
+### Download and build UMWM
 
 ```
 make download_umwm
+make umwm
+```
+
+### Build HYCOM
+
+```
+make hycom
 ```
 
 ### Build EarthVM
