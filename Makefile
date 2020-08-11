@@ -6,22 +6,23 @@ FC = mpif90
 #FFLAGS = -Wall -O0 -g -fbacktrace -fbounds-check -fconvert=big-endian # big-endian needed for WRF
 
 # Note: IBM Power9 needs -O0 and -fbounds-check
-FFLAGS = -Wall -O0 -fbounds-check -fconvert=big-endian # big-endian needed for WRF
+#FFLAGS = -Wall -O0 -fbounds-check -fconvert=big-endian # big-endian needed for WRF
 
 # gfortran, optimized
-#FFLAGS = -march=native -ffast-math -Wall -funroll-loops -fconvert=big-endian
+FFLAGS = -march=native -ffast-math -Wall -funroll-loops -fconvert=big-endian
 
 # ifort, optimized
 #FFLAGS = -O3 -convert big_endian
 
-HYCOM_ARCH=power9-at-sm-relo # gfortran on IBM Power9
-#HYCOM_ARCH=intelGF-impi-sm-relo # gfortran on Intel x86
+#HYCOM_ARCH=power9-at-sm-relo # gfortran on IBM Power9
+HYCOM_ARCH=intelGF-impi-sm-relo # gfortran on Intel x86
 #HYCOM_ARCH=intelsse-impi-sm-relo # ifort on Intel x86
 
 CPPFLAGS = -I$(ESMF_INCLUDE) \
 	   -I$(WRF)/external/esmf_time_f90 \
            -I$(WRF)/frame \
            -I$(WRF)/main \
+           -I$(WRF)/phys \
            -I$(WRF)/share \
 	   -I$(UMWM) \
 	   -I$(HYCOM) \
@@ -69,9 +70,6 @@ clean_umwm:
 
 download_esmf:
 	git clone -b ESMF_8_0_1 https://github.com/esmf-org/esmf
-
-download_wrf:
-	git clone -b v4.2 https://github.com/wrf-model/WRF wrf-4.2
 
 download_umwm:
 	git clone https://github.com/umwm/umwm
