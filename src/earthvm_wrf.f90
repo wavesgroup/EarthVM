@@ -163,6 +163,9 @@ contains
 
 
   subroutine model_run(gridded_component, import_state, export_state, clock, rc)
+
+    use module_sf_sfclayrev, only: earthvm_momentum_coupling
+
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
@@ -178,7 +181,11 @@ contains
     integer :: lb(2), ub(2)
 
     print *, 'in wrf model_run'
-    
+
+    ! flip the coupling switch in the WRF surface layer module to override
+    ! WRF's calculation of the surface roughness length
+    earthvm_momentum_coupling = .true.
+
     call get_ijk_from_grid(head_grid, &
                            ids, ide, jds, jde, kds, kde, &
                            ims, ime, jms, jme, kms, kme, &
@@ -208,6 +215,34 @@ contains
     do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
       head_grid % earthvm_tauy(i,j) = field_values(i,j)
     end do
+
+    ! Set roughness length in WRF
+    stress_coupling: block
+      real :: psix10, wspd10, ust
+      real :: psim10(ips:ipe,jps:jpe) ! stability function for momentum at 10-m height
+      real, pointer :: taux(:,:), tauy(:,:)
+      real, parameter :: von_karman_constant = 0.4
+
+      call ESMF_StateGet(import_state, 'taux_wav', field)
+      call get_field_values(field, taux, lb, ub)
+
+      call ESMF_StateGet(import_state, 'tauy_wav', field)
+      call get_field_values(field, tauy, lb, ub)
+
+      do j = jps, jpe
+        do i = ips, ipe
+          if (head_grid % xland(i,j) > 1.5) then
+            wspd10 = sqrt(head_grid % u10(i,j)**2 + head_grid % v10(i,j)**2)
+            psix10 = wspd10 * head_grid % fm(i,j) / head_grid % wspd(i,j)
+            psim10(i,j) = log(10 / head_grid % znt(i,j)) - psix10
+            ust = sqrt(sqrt(taux(i,j)**2 + tauy(i,j)**2) * head_grid % alt(i,1,j))
+            head_grid % znt(i,j) = 10 * exp(- von_karman_constant * wspd10 / ust - psim10(i,j))
+            head_grid % znt(i,j) = max(head_grid % znt(i,j), 1e-5)
+          end if
+        end do
+      end do
+
+    end block stress_coupling
 
     call ESMF_StateGet(import_state, 'u_current', field)
     call get_field_values(field, field_values, lb, ub)
