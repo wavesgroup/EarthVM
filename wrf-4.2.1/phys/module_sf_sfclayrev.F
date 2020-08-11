@@ -2,6 +2,8 @@
 !
 MODULE module_sf_sfclayrev
 
+ logical :: earthvm_momentum_coupling = .false.
+
  REAL    , PARAMETER ::  VCONVC=1.
  REAL    , PARAMETER ::  CZO=0.0185
  REAL    , PARAMETER ::  OZO=1.59E-5
@@ -969,7 +971,7 @@ CONTAINS
 !-----OVER WATER, ALTER ROUGHNESS LENGTH (ZNT) ACCORDING TO WIND (UST).          
                                                                                  
       DO 360 I=its,ite
-        IF((XLAND(I)-1.5).GE.0)THEN                                            
+        IF((XLAND(I)-1.5).GE.0 .AND. .NOT. earthvm_momentum_coupling)THEN
 !         ZNT(I)=CZO*UST(I)*UST(I)/G+OZO                                   
 ! Since V3.7 (ref: EC Physics document for Cy36r1)
           ZNT(I)=CZO*UST(I)*UST(I)/G+0.11*1.5E-5/UST(I)
