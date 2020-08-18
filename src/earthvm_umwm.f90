@@ -134,8 +134,6 @@ contains
     start_time_string(11:11) = ' '
     stop_time_string(11:11) = ' '
 
-    print *, 'before import fields'
-
     ! set import field values to UMWM arrays
     call ESMF_StateGet(import_state, 'wspd', field)
     call get_field_values(field, field_values, lb, ub)
