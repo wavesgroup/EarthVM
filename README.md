@@ -70,4 +70,13 @@ make test
 due to unsupported C++ features.
 * Building WRF on ppc64 with at-12.0 (IBM Advanced Toolchain) 
 requires passing `-Uvector` to cpp.
+* To build ESMF shared libraries with XL on IBM Power9, the following
+must be added to `build_config/Linux.xlf.default/build_rules.mk`:
 
+```
+ESMF_SL_LIBS_TO_MAKE = libesmf
+ESMF_SL_SUFFIX = so
+ESMF_SL_LIBLINKER = mpicxx
+ESMF_SL_LIBOPTS = -qpic -shared
+ESMF_SL_LIBLIBS =
+```
