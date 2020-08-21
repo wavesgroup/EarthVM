@@ -184,7 +184,7 @@ contains
 
     ! flip the coupling switch in the WRF surface layer module to override
     ! WRF's calculation of the surface roughness length
-    earthvm_momentum_coupling = .true.
+    earthvm_momentum_coupling = .false.
 
     call get_ijk_from_grid(head_grid, &
                            ids, ide, jds, jde, kds, kde, &
