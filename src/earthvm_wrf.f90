@@ -52,8 +52,6 @@ contains
     integer :: ims, ime, jms, jme, kms, kme
     integer :: ips, ipe, jps, jpe, kps, kpe
 
-    print *, 'in wrf model_init'
-
     call wrf_set_dm_communicator(earthvm_get_mpicomm())
 
     call wrf_init()
@@ -179,8 +177,6 @@ contains
 
     real, pointer :: field_values(:,:)
     integer :: lb(2), ub(2)
-
-    print *, 'in wrf model_run'
 
     ! flip the coupling switch in the WRF surface layer module to override
     ! WRF's calculation of the surface roughness length

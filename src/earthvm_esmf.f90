@@ -183,8 +183,11 @@ contains
     real, pointer, intent(out) :: field_values(:,:)
     integer, intent(out), optional :: lower_bounds(2), upper_bounds(2)
     integer :: rc
-    call ESMF_FieldGet(field, farrayPtr=field_values, &
-                       exclusiveLBound=lower_bounds, exclusiveUBound=upper_bounds)
+    call ESMF_FieldGet(field,                        &
+                       farrayPtr=field_values,       &
+                       exclusiveLBound=lower_bounds, & 
+                       exclusiveUBound=upper_bounds, &
+                       rc=rc)
     call assert_success(rc)
   end subroutine get_field_values
 
