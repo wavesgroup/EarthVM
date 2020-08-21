@@ -1,6 +1,8 @@
 #!/bin/bash
 
-export WRF=`pwd`/wrf-4.2
+ulimit -s unlimited
+
+export WRF=`pwd`/wrf-4.2.1
 export UMWM=`pwd`/umwm/src
 export HYCOM=`pwd`/hycom-2.3.01
 

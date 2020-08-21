@@ -247,6 +247,7 @@ contains
   subroutine umwm_get_tile_bounds(ide, jde, ips, ipe, jps, jpe)
     ! Given domain extent indices, returns local tile extend indices.
     use umwm_module, only: istart, iend, mi, ni
+    use umwm_init, only: remap_dir
     integer, intent(in) :: ide, jde
     integer, intent(out) :: ips, ipe, jps, jpe
     integer :: local_pet, pet_count
@@ -254,14 +255,16 @@ contains
     local_pet = earthvm_get_local_pet()
     pet_count = earthvm_get_pet_count()
    
-    if (ide >= jde) then
+    if (remap_dir == 'v') then
+      ! tiles are oriented in the y-axis
       ips = mi(istart)
       ipe = mi(iend)
       jps = 1
       jpe = jde
       if (local_pet == 0) ips = ips - 1
       if (local_pet == pet_count - 1) ipe = ipe + 1
-    else if (ide < jde) then
+    else if (remap_dir == 'h') then
+      ! tiles are oriented in the x-axis
       ips = 1
       ipe = ide
       jps = ni(istart)

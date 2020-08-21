@@ -3,6 +3,8 @@
 # HDF5 and NETCDF must be already set in the environment.
 # To enable building ESMF shared libraries, see the note in README.md.
 
+ulimit -s unlimited
+
 export WRF=`pwd`/wrf-4.2.1
 export UMWM=`pwd`/umwm/src
 export HYCOM=`pwd`/hycom-2.3.01
