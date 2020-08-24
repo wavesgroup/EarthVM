@@ -129,6 +129,9 @@ contains
     ! to the native model data structure.
     class(earthvm_model_type), intent(in out) :: self, target_model
     integer :: n
+    real :: t1, t2
+
+    call cpu_time(t1)
 
     ! loop over forcings on this model
     do n = 1, size(self % forcing)
@@ -138,6 +141,11 @@ contains
                                        self % forcing(n) % target_field_name)
       end if
     end do
+
+    call cpu_time(t2)
+    if (earthvm_get_local_pet() == 0) &
+      print *, 'EarthVM: ' // self % name // ' -> ' // target_model % name &
+               // ' force elapsed', t2 - t1, 'seconds.'
 
   end subroutine force
 
@@ -208,16 +216,14 @@ contains
 
 
   type(ESMF_Field) function get_field(self, field_name) result(field)
+    ! Returns a field instance given the field name.
     class(earthvm_model_type), intent(in) :: self
     character(*), intent(in) :: field_name
     integer :: rc
-    call ESMF_StateGet(self % import_state, field_name, field, rc=rc)
-    if (rc == ESMF_RC_NOT_FOUND) then
-      call ESMF_StateGet(self % export_state, field_name, field, rc=rc)
-      call assert_success(rc)
-    else
-      call assert_success(rc)
-    end if
+    call ESMF_StateGet(self % export_state, field_name, field, rc=rc)
+    if (rc == ESMF_RC_NOT_FOUND) &
+      call ESMF_StateGet(self % import_state, field_name, field, rc=rc)
+    call assert_success(rc)
   end function get_field
 
 
@@ -253,6 +259,9 @@ contains
     class(earthvm_model_type), intent(in out) :: self
     type(datetime) :: current_time
     integer :: rc
+    real :: t1, t2
+
+    call cpu_time(t1)
 
     if (self % verbose) then
       if (earthvm_get_local_pet() == 0) then
@@ -274,6 +283,10 @@ contains
     ! tick the clock forward in time
     call ESMF_ClockAdvance(self % clock, rc=rc)
     call assert_success(rc)
+
+    call cpu_time(t2)
+    if (earthvm_get_local_pet() == 0) &
+      print *, 'EarthVM: ' // self % name // ' run elapsed', t2 - t1, 'seconds.'
 
     call ESMF_LogWrite('Model ' // self % name // ' ran', ESMF_LOGMSG_INFO)
     call ESMF_LogFlush()
