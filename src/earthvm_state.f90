@@ -14,7 +14,7 @@ contains
     integer :: rc
     call ESMF_Initialize(defaultCalKind = ESMF_CALKIND_GREGORIAN, &
                          vm             = vm,                     &
-                         logkindflag    = ESMF_LOGKIND_SINGLE,    &
+                         logkindflag    = ESMF_LOGKIND_NONE,    &
                          rc             = rc)
     call assert_success(rc)
     earthvm_is_initialized = .true.
