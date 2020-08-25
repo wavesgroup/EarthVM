@@ -178,10 +178,6 @@ contains
     real, pointer :: field_values(:,:)
     integer :: lb(2), ub(2)
 
-    ! flip the coupling switch in the WRF surface layer module to override
-    ! WRF's calculation of the surface roughness length
-    earthvm_momentum_coupling = .false.
-
     call get_ijk_from_grid(head_grid, &
                            ids, ide, jds, jde, kds, kde, &
                            ims, ime, jms, jme, kms, kme, &
@@ -228,12 +224,12 @@ contains
       do j = jps, jpe
         do i = ips, ipe
           if (head_grid % xland(i,j) > 1.5) then
-            wspd10 = sqrt(head_grid % u10(i,j)**2 + head_grid % v10(i,j)**2)
-            psix10 = wspd10 * head_grid % fm(i,j) / head_grid % wspd(i,j)
-            psim10(i,j) = log(10 / head_grid % znt(i,j)) - psix10
-            ust = sqrt(sqrt(taux(i,j)**2 + tauy(i,j)**2) * head_grid % alt(i,1,j))
-            head_grid % znt(i,j) = 10 * exp(- von_karman_constant * wspd10 / ust - psim10(i,j))
-            head_grid % znt(i,j) = max(head_grid % znt(i,j), 1e-5)
+            !wspd10 = sqrt(head_grid % u10(i,j)**2 + head_grid % v10(i,j)**2)
+            !psix10 = wspd10 * head_grid % fm(i,j) / head_grid % wspd(i,j)
+            !psim10(i,j) = log(10 / head_grid % znt(i,j)) - psix10
+            !ust = sqrt(sqrt(taux(i,j)**2 + tauy(i,j)**2) * head_grid % alt(i,1,j))
+            !head_grid % znt(i,j) = 10 * exp(- von_karman_constant * wspd10 / ust - psim10(i,j))
+            !head_grid % znt(i,j) = max(head_grid % znt(i,j), 1e-5)
           end if
         end do
       end do
@@ -266,6 +262,10 @@ contains
 
     call set_wrf_clock(clock)
     call wrf_run()
+    
+    ! flip the coupling switch in the WRF surface layer module to override
+    ! WRF's calculation of the surface roughness length
+    earthvm_momentum_coupling = .false.
 
     call ESMF_StateGet(export_state, 'u10', field)
     call set_field_values(field, head_grid % u10(ips:ipe,jps:jpe))

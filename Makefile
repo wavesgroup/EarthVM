@@ -17,6 +17,7 @@ FC = mpif90
 
 # Power9, XL
 FFLAGS = -O3 -qstrict
+#FFLAGS = -O0 -g9 -qtbtable=full -qcheck=all
 
 HYCOM_ARCH=xl-smpi-sm-relo # XL with Spectrum MPI on IBM Power9
 #HYCOM_ARCH=intelGF-impi-sm-relo # gfortran on Intel x86

@@ -129,9 +129,9 @@ contains
     ! to the native model data structure.
     class(earthvm_model_type), intent(in out) :: self, target_model
     integer :: n
-    real :: t1, t2
+    !real :: t1, t2
 
-    call cpu_time(t1)
+    !call cpu_time(t1)
 
     ! loop over forcings on this model
     do n = 1, size(self % forcing)
@@ -142,10 +142,10 @@ contains
       end if
     end do
 
-    call cpu_time(t2)
-    if (earthvm_get_local_pet() == 0) &
-      print *, 'EarthVM: ' // self % name // ' -> ' // target_model % name &
-               // ' force elapsed', t2 - t1, 'seconds.'
+    !call cpu_time(t2)
+    !if (earthvm_get_local_pet() == 0) &
+    !  print *, 'EarthVM: ' // self % name // ' -> ' // target_model % name &
+    !           // ' force elapsed', t2 - t1, 'seconds.'
 
   end subroutine force
 
