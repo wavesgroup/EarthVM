@@ -1,5 +1,5 @@
 program main
-  ! Coupled atmosphere-ocean driver.
+  ! Uncoupled atmosphere ocean driver, initialized with ocean SST.
   use earthvm_datetime, only: datetime, timedelta
   use earthvm_model, only: earthvm_model_type
   use earthvm_state, only: earthvm_initialize, earthvm_finalize
@@ -18,14 +18,7 @@ program main
 
   atmosphere = earthvm_model_type('wrf', start_time, stop_time, 15, set_wrf_services)
   ocean = earthvm_model_type('hycom', start_time, stop_time, 15, set_hycom_services)
-
-  ! Atmosphere coupling
-  call atmosphere % set_forcing('shortwave_flux', ocean, 'shortwave_flux')
-  call atmosphere % set_forcing('total_flux', ocean, 'total_flux')
-  call atmosphere % set_forcing('rainrate', ocean, 'rainrate')
-  call atmosphere % set_forcing('taux', ocean, 'taux')
-  call atmosphere % set_forcing('tauy', ocean, 'tauy')
- 
+  
   ! Ocean coupling
   call ocean % set_forcing('sst', atmosphere, 'sst')
   call ocean % set_forcing('u', atmosphere, 'u_current')
@@ -34,7 +27,6 @@ program main
   call atmosphere % initialize()
   call ocean % initialize()
 
-  call atmosphere % force(ocean)
   call ocean % force(atmosphere)
      
   time = start_time
@@ -43,15 +35,7 @@ program main
     ! run atmosphere for one time step
     if (atmosphere % get_current_time() < time) then
       call atmosphere % run()
-      call atmosphere % force(ocean)
       !call atmosphere % write_to_netcdf()
-    end if
-
-    ! run ocean for one time step
-    if (ocean % get_current_time() < time) then
-      call ocean % run()
-      call ocean % force(atmosphere)
-      !call ocean % write_to_netcdf()
     end if
 
     ! advance master clock

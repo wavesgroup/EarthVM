@@ -17,7 +17,7 @@ OBJS = earthvm_assert.o \
        earthvm_umwm.o \
        earthvm_wrf.o
 
-PROGS = main_awo main_ao main_aw
+PROGS = main_awo main_ao main_aw main_ua
 
 all: $(LIB) $(PROGS)
 
@@ -38,6 +38,10 @@ main_ao: main_ao.f90 $(OBJS)
 main_aw: main_aw.f90 $(OBJS)
 	$(FC) -c $(FFLAGS) $(CPPFLAGS) $<
 	$(FC) $(FFLAGS) -o $@ main_aw.o $(OBJS) $(WRF_OBJS) $(LDFLAGS)
+
+main_ua: main_ua.f90 $(OBJS)
+	$(FC) -c $(FFLAGS) $(CPPFLAGS) $<
+	$(FC) $(FFLAGS) -o $@ main_ua.o $(OBJS) $(WRF_OBJS) $(LDFLAGS)
 
 clean:
 	$(RM) $(PROGS) *.a *.o *.mod PET*
