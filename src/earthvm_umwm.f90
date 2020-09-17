@@ -53,8 +53,6 @@ contains
     integer :: ips, ipe, jps, jpe
     integer :: local_pet, pet_count
     
-    print *, 'in umwm model_init'
-
     local_pet = earthvm_get_local_pet()
     pet_count = earthvm_get_pet_count()
 

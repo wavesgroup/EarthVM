@@ -17,9 +17,15 @@ program main
 
   call earthvm_initialize()
 
-  atmosphere = earthvm_model_type('wrf', start_time, stop_time, 45, set_wrf_services)
-  waves = earthvm_model_type('umwm', start_time, stop_time, 60, set_umwm_services)
-  ocean = earthvm_model_type('hycom', start_time, stop_time, 60, set_hycom_services)
+  ! Hi-res
+  atmosphere = earthvm_model_type('wrf', start_time, stop_time, 15, set_wrf_services)
+  waves = earthvm_model_type('umwm', start_time, stop_time, 15, set_umwm_services)
+  ocean = earthvm_model_type('hycom', start_time, stop_time, 15, set_hycom_services)
+  
+  ! Lo-res
+  !atmosphere = earthvm_model_type('wrf', start_time, stop_time, 45, set_wrf_services)
+  !waves = earthvm_model_type('umwm', start_time, stop_time, 45, set_umwm_services)
+  !ocean = earthvm_model_type('hycom', start_time, stop_time, 45, set_hycom_services)
 
   ! Atmosphere coupling
   call atmosphere % set_forcing('wspd', waves, 'wspd')
@@ -64,7 +70,7 @@ program main
       call atmosphere % run()
       call atmosphere % force(ocean)
       call atmosphere % force(waves)
-      call atmosphere % write_to_netcdf()
+      !call atmosphere % write_to_netcdf()
     end if
 
     ! run waves for one time step
@@ -72,7 +78,7 @@ program main
       call waves % run()
       call waves % force(atmosphere)
       call waves % force(ocean)
-      call waves % write_to_netcdf()
+      !call waves % write_to_netcdf()
     end if
 
     ! run ocean for one time step
@@ -80,7 +86,7 @@ program main
       call ocean % run()
       call ocean % force(atmosphere)
       call ocean % force(waves)
-      call ocean % write_to_netcdf()
+      !call ocean % write_to_netcdf()
     end if
 
     ! advance master clock
