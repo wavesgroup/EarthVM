@@ -10,12 +10,9 @@ contains
     logical, intent(in) :: condition
     character(*), intent(in), optional :: msg
     if (.not. condition) then
-      if (present(msg)) then
-        write(stderr, '(a)') msg
-      else
-        write(stderr, '(a)') 'Assert failed.'
-      end if
+      if (present(msg)) write(stderr, '(a)') msg
       call ESMF_Finalize()
+      error stop 'EarthVM: Assertion failed.'
     end if
   end subroutine assert
 
