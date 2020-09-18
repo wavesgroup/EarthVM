@@ -1,21 +1,51 @@
 module earthvm_wrf
 
+  ! EarthVM interface to WRF.
+
   use ESMF !TODO , only: ...
-  use earthvm_assert, only: assert_success
+
+  ! EarthVM module imports
+  use earthvm_assert, only: assert, assert_success
   use earthvm_esmf, only: create_distgrid, create_grid, create_field, &
                           get_field_values, set_field_values
-  use earthvm_events
+  use earthvm_events, only: earthvm_event_type
   use earthvm_io, only: write_grid_to_netcdf
-  use earthvm_state, only: earthvm_get_mpicomm
-  use module_wrf_top, only: get_ijk_from_grid, head_grid, &
-                            wrf_init, wrf_run, wrf_finalize
+  use earthvm_model, only: earthvm_model_type
+  use earthvm_state, only: earthvm_get_mpicomm, earthvm_get_local_pet
+ 
+  ! WRF module imports
+  use module_domain_type, only: domain
+  use module_wrf_top, only: get_ijk_from_grid, head_grid, wrf_init, wrf_run, &
+                            wrf_finalize
 
   implicit none
 
   private
   public :: set_services
 
+  ! Thin wrapper to hold the pointer to WRF domains,
+  ! parent and inner nests alike
+  type :: domain_ptr
+    type(domain), pointer :: ptr
+  end type domain_ptr
+
+  type(domain_ptr), allocatable :: dom(:)
+  integer :: num_wrf_domains = 0
+
 contains
+
+  recursive integer function get_num_wrf_domains(dom) result(res)
+    ! Returns the number of active WRF domains.
+    use module_domain, only: domain_clockisstoptime
+    type(domain), pointer, intent(in) :: dom
+    integer :: n
+    res = 1
+    do n = 1, dom % num_nests
+      if (.not. domain_clockisstoptime(dom % nests(n) % ptr)) &
+        res = res + get_num_wrf_domains(dom % nests(n) % ptr)
+    end do
+  end function get_num_wrf_domains
+
 
   subroutine set_services(gridded_component, rc)
     type(ESMF_GridComp) :: gridded_component
@@ -52,9 +82,26 @@ contains
     integer :: ims, ime, jms, jme, kms, kme
     integer :: ips, ipe, jps, jpe, kps, kpe
 
+    ! This initializes the WRF MPI communicator.
+    ! Because we already initialized the communicator in ESMF,
+    ! we pass it to WRF here as an argument.
     call wrf_set_dm_communicator(earthvm_get_mpicomm())
 
+    ! This calls WRF's internal init() subroutine which initializes the model
     call wrf_init()
+
+    ! Get the number of WRF domains. This won't register the nests before they start,
+    ! however it will register them even after they're destroyed.
+    num_wrf_domains = get_num_wrf_domains(head_grid)
+    call assert(num_wrf_domains >= 1 .and. num_wrf_domains <= 21, &
+                'WRF namelist parameter max_dom must be in the range [1, 21]')
+    if (earthvm_get_local_pet() == 0) print *, 'num_wrf_domains', num_wrf_domains
+
+    ! Associate the 1st domain pointer with the parent domain
+    allocate(dom(num_wrf_domains))
+    dom(1) % ptr => head_grid
+
+    ! Get the global (*d*), memory (*m*), and local process (*p*) array bounds
     call get_ijk_from_grid(head_grid, &
                            ids, ide, jds, jde, kds, kde, &
                            ims, ime, jms, jme, kms, kme, &
@@ -177,6 +224,11 @@ contains
 
     real, pointer :: field_values(:,:)
     integer :: lb(2), ub(2)
+    
+    num_wrf_domains = get_num_wrf_domains(head_grid)
+    call assert(num_wrf_domains >= 1 .and. num_wrf_domains <= 21, &
+                'WRF namelist parameter max_dom must be in the range [1, 21]')
+    if (earthvm_get_local_pet() == 0) print *, 'num_wrf_domains', num_wrf_domains
 
     call get_ijk_from_grid(head_grid, &
                            ids, ide, jds, jde, kds, kde, &
