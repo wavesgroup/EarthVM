@@ -24,6 +24,7 @@ module earthvm_model
     type(ESMF_Clock) :: clock
     type(earthvm_regrid_type), allocatable :: regrid(:)
     type(earthvm_forcing_type), allocatable :: forcing(:)
+    logical :: nest = .false.
     logical :: verbose = .false.
   contains
     procedure, pass(self) :: finalize
@@ -45,8 +46,8 @@ module earthvm_model
 
 contains
 
-  type(earthvm_model_type) function earthvm_model_constructor( &
-    name, start_time, stop_time, time_step, user_services, verbose) result(self)
+  type(earthvm_model_type) function earthvm_model_constructor(name, &
+    start_time, stop_time, time_step, user_services, nest, verbose) result(self)
     character(*), intent(in) :: name
     type(datetime), intent(in) :: start_time, stop_time
     integer, intent(in) :: time_step ! seconds
@@ -57,13 +58,14 @@ contains
         integer, intent(out) :: rc
       end subroutine user_services
     end interface
-    logical, intent(in), optional :: verbose
+    logical, intent(in), optional :: nest, verbose
     type(ESMF_Time) :: esmf_start_time, esmf_stop_time
     type(ESMF_TimeInterval) :: esmf_time_step
     integer :: rc
     
     self % name = name
     
+    if (present(nest)) self % nest = nest
     if (present(verbose)) self % verbose = verbose
 
     allocate(self % regrid(0))
