@@ -11,6 +11,7 @@ OBJS = earthvm_assert.o \
        earthvm_hycom.o \
        earthvm_io.o \
        earthvm_model.o \
+       earthvm_nesting.o \
        earthvm_regrid.o \
        earthvm_state.o \
        earthvm_str.o \
@@ -53,7 +54,8 @@ earthvm_io.o: earthvm_assert.o earthvm_state.o
 earthvm_model.o: earthvm_assert.o earthvm_datetime.o earthvm_esmf.o \
                  earthvm_events.o earthvm_io.o earthvm_regrid.o \
                  earthvm_state.o earthvm_str.o
+earthvm_nesting.o: earthvm_model.o
 earthvm_regrid.o: earthvm_assert.o
 earthvm_state.o: earthvm_assert.o
 earthvm_umwm.o: earthvm_assert.o earthvm_events.o earthvm_state.o earthvm_io.o
-earthvm_wrf.o: earthvm_assert.o earthvm_events.o earthvm_state.o earthvm_io.o
+earthvm_wrf.o: earthvm_assert.o earthvm_events.o earthvm_io.o earthvm_model.o earthvm_state.o
