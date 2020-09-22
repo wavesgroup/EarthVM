@@ -6,8 +6,10 @@ module earthvm_wrf
 
   ! EarthVM module imports
   use earthvm_assert, only: assert, assert_success
+  use earthvm_datetime, only: datetime
   use earthvm_esmf, only: create_distgrid, create_grid, create_field, &
-                          get_field_values, set_field_values
+                          get_field_values, set_field_values, &
+                          get_current_time_from_clock, get_stop_time_from_clock
   use earthvm_events, only: earthvm_event_type
   use earthvm_io, only: write_grid_to_netcdf
   use earthvm_model, only: earthvm_model_type
@@ -21,16 +23,21 @@ module earthvm_wrf
   implicit none
 
   private
-  public :: set_services
+  public :: set_services, nests
 
   ! Thin wrapper to hold the pointer to WRF domains,
   ! parent and inner nests alike
-  type :: domain_ptr
+  type :: domain_ptr_type
     type(domain), pointer :: ptr
-  end type domain_ptr
+  end type domain_ptr_type
 
-  type(domain_ptr), allocatable :: dom(:)
+  ! This number is limited by the WRF implementation
+  integer, parameter :: MAX_WRF_DOMAINS = 21
+
+  type(domain_ptr_type) :: dom(MAX_WRF_DOMAINS)
   integer :: num_wrf_domains = 0
+
+  type(earthvm_model_type), allocatable :: nests(:)
 
 contains
 
@@ -45,6 +52,31 @@ contains
         res = res + get_num_wrf_domains(dom % nests(n) % ptr)
     end do
   end function get_num_wrf_domains
+
+
+  subroutine get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
+    ! Thin wrapper around WRF's get_ijk_from_grid() subroutine.
+    ! Given a WRF domain pointer, it returns the global and local start and end
+    ! indices in x and y dimensions.
+    ! The last point is excluded due to staggering.
+    type(domain), pointer, intent(in) :: dom
+    integer, intent(out) :: ids, ide, jds, jde ! global start and end indices
+    integer, intent(out) :: ips, ipe, jps, jpe ! local start and end indices
+    integer :: kds, kde, kps, kpe, ims, ime, jms, jme, kms, kme
+
+    ! Get all indices from the WRF domain pointer
+    call get_ijk_from_grid(dom,                          &
+                           ids, ide, jds, jde, kds, kde, &
+                           ims, ime, jms, jme, kms, kme, &
+                           ips, ipe, jps, jpe, kps, kpe)
+
+    ! Exclude the last staggered grid cell
+    ide = ide - 1
+    jde = jde - 1
+    ipe = min(ide, ipe)
+    jpe = min(jde, jpe)
+
+  end subroutine get_wrf_array_bounds
 
 
   subroutine set_services(gridded_component, rc)
@@ -78,16 +110,15 @@ contains
 
     type(ESMF_Field), allocatable :: fields(:)
 
-    integer :: ids, ide, jds, jde, kds, kde
-    integer :: ims, ime, jms, jme, kms, kme
-    integer :: ips, ipe, jps, jpe, kps, kpe
+    integer :: ids, ide, jds, jde ! global start and end indices
+    integer :: ips, ipe, jps, jpe ! local start and end indices
 
     ! This initializes the WRF MPI communicator.
     ! Because we already initialized the communicator in ESMF,
     ! we pass it to WRF here as an argument.
     call wrf_set_dm_communicator(earthvm_get_mpicomm())
 
-    ! This calls WRF's internal init() subroutine which initializes the model
+    ! Call WRF's internal init() subroutine to initialize the model
     call wrf_init()
 
     ! Get the number of WRF domains. This won't register the nests before they start,
@@ -98,20 +129,12 @@ contains
     if (earthvm_get_local_pet() == 0) print *, 'num_wrf_domains', num_wrf_domains
 
     ! Associate the 1st domain pointer with the parent domain
-    allocate(dom(num_wrf_domains))
     dom(1) % ptr => head_grid
 
-    ! Get the global (*d*), memory (*m*), and local process (*p*) array bounds
-    call get_ijk_from_grid(head_grid, &
-                           ids, ide, jds, jde, kds, kde, &
-                           ims, ime, jms, jme, kms, kme, &
-                           ips, ipe, jps, jpe, kps, kpe)
+    ! Initialize nests as an empty array
+    nests = [earthvm_model_type ::]
 
-    ! exclude the last staggered grid cell
-    ide = ide - 1
-    jde = jde - 1
-    ipe = min(ide, ipe)
-    jpe = min(jde, jpe)
+    call get_wrf_array_bounds(dom(1) % ptr, ids, ide, jds, jde, ips, ipe, jps, jpe)
 
     distgrid = create_distgrid([ips, jps], [ipe, jpe], [ids, jds], [ide, jde])
     grid = create_grid(distgrid, 'WRF grid', &
@@ -216,30 +239,66 @@ contains
     type(ESMF_Clock) :: clock
     integer, intent(out) :: rc
 
+    type(earthvm_model_type) :: nest
+    type(ESMF_DistGrid) :: distgrid
+    type(ESMF_Grid) :: grid
+
     type(ESMF_Field) :: field
-    integer :: ids, ide, jds, jde, kds, kde
-    integer :: ims, ime, jms, jme, kms, kme
-    integer :: ips, ipe, jps, jpe, kps, kpe
-    integer :: i, j
+    integer :: ids, ide, jds, jde
+    integer :: ips, ipe, jps, jpe
+    integer :: i, j, n
 
     real, pointer :: field_values(:,:)
     integer :: lb(2), ub(2)
-    
-    num_wrf_domains = get_num_wrf_domains(head_grid)
-    call assert(num_wrf_domains >= 1 .and. num_wrf_domains <= 21, &
-                'WRF namelist parameter max_dom must be in the range [1, 21]')
-    if (earthvm_get_local_pet() == 0) print *, 'num_wrf_domains', num_wrf_domains
 
-    call get_ijk_from_grid(head_grid, &
-                           ids, ide, jds, jde, kds, kde, &
-                           ims, ime, jms, jme, kms, kme, &
-                           ips, ipe, jps, jpe, kps, kpe)
+    ! Associate the first domain with the WRF parent domain
+    dom(1) % ptr => head_grid
 
-    ! exclude the last staggered grid cell
-    ide = ide - 1
-    jde = jde - 1
-    ipe = min(ide, ipe)
-    jpe = min(jde, jpe)
+    ! Get number of active domains (parent + nests)
+    num_wrf_domains = get_num_wrf_domains(dom(1) % ptr)
+
+    ! Associate our array of domain pointers with WRF domains
+    do n = 1, num_wrf_domains
+      if (associated(dom(n) % ptr % nests(1) % ptr)) then
+        dom(n+1) % ptr => dom(n) % ptr % nests(1) % ptr
+      end if
+    end do
+
+    ! Loop over active nests and if EarthVM model structure
+    ! for the nest has not been created yet, do so now
+    do n = 2, num_wrf_domains
+      if (size(nests) < n - 1) then
+
+        nest = earthvm_model_type('wrf_d02', & ! generalize later
+                                  get_current_time_from_clock(clock), & ! dummy value (not used)
+                                  get_stop_time_from_clock(clock), & ! dummy value (not used)
+                                  1, & ! dummy value (not important)
+                                  set_services)
+
+        if (earthvm_get_local_pet() == 0) print *, 'Nest initialized!'
+
+        call get_wrf_array_bounds(dom(n) % ptr, ids, ide, jds, jde, ips, ipe, jps, jpe)
+        if (earthvm_get_local_pet() == 0) print *, 'ids, ide, jds, jde, ips, ipe, jps, jpe', &
+                                                    ids, ide, jds, jde, ips, ipe, jps, jpe
+
+        distgrid = create_distgrid([ips, jps], [ipe, jpe], [ids, jds], [ide, jde])
+        grid = create_grid(distgrid, 'WRF nest grid', &
+                           lon=dom(n) % ptr % xlong(ips:ipe, jps:jpe), &
+                           lat=dom(n) % ptr % xlat(ips:ipe, jps:jpe), &
+                           mask=nint(dom(n) % ptr % xland(ips:ipe, jps:jpe) - 1))
+
+        call write_grid_to_netcdf(grid, 'wrf_nest_grid.nc')
+
+        nests = [nests, nest]
+
+      end if
+    end do
+
+    if (earthvm_get_local_pet() == 0) then
+      print *, 'num_wrf_domains', num_wrf_domains, 'size(nests)', size(nests)
+    end if
+
+    call get_wrf_array_bounds(dom(1) % ptr, ids, ide, jds, jde, ips, ipe, jps, jpe)
 
     ! copy values from ESMF field to the WRF data structure
     call ESMF_StateGet(import_state, 'sst', field)

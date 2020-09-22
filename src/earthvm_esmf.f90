@@ -1,11 +1,24 @@
 module earthvm_esmf
+
   use ESMF ! , only: ...
   use earthvm_assert, only: assert_success
+  use earthvm_datetime, only: datetime
   use earthvm_state, only: earthvm_get_vm, earthvm_get_local_pet, earthvm_get_pet_count
+
   implicit none
+
   private
-  public :: create_distgrid, create_grid, create_field, get_grid, &
-            get_field_values, get_itemlist_from_state, set_field_values
+
+  public :: create_distgrid
+  public :: create_grid
+  public :: create_field
+  public :: get_grid
+  public :: get_current_time_from_clock
+  public :: get_start_time_from_clock
+  public :: get_stop_time_from_clock
+  public :: get_field_values
+  public :: get_itemlist_from_state
+  public :: set_field_values
 
 contains
 
@@ -190,6 +203,63 @@ contains
                        rc=rc)
     call assert_success(rc)
   end subroutine get_field_values
+
+
+  type(datetime) function get_current_time_from_clock(clock) result(time)
+    ! Returns the current clock time.
+    type(ESMF_Clock), intent(in) :: clock
+    type(ESMF_Time) :: current_esmf_time
+    integer :: year, month, day, hour, minute, second
+    integer :: rc
+
+    call ESMF_ClockGet(clock, currTime=current_esmf_time, rc=rc)
+    call assert_success(rc)
+
+    call ESMF_TimeGet(current_esmf_time, yy=year, mm=month, dd=day, &
+                      h=hour, m=minute, s=second, rc=rc)
+    call assert_success(rc)
+
+    time = datetime(year, month, day, hour, minute, second)
+
+  end function get_current_time_from_clock
+
+
+  type(datetime) function get_start_time_from_clock(clock) result(time)
+    ! Returns the clock start time.
+    type(ESMF_Clock), intent(in) :: clock
+    type(ESMF_Time) :: start_esmf_time
+    integer :: year, month, day, hour, minute, second
+    integer :: rc
+
+    call ESMF_ClockGet(clock, startTime=start_esmf_time, rc=rc)
+    call assert_success(rc)
+
+    call ESMF_TimeGet(start_esmf_time, yy=year, mm=month, dd=day, &
+                      h=hour, m=minute, s=second, rc=rc)
+    call assert_success(rc)
+
+    time = datetime(year, month, day, hour, minute, second)
+
+  end function get_start_time_from_clock
+
+
+  type(datetime) function get_stop_time_from_clock(clock) result(time)
+    ! Returns the clock stop time.
+    type(ESMF_Clock), intent(in) :: clock
+    type(ESMF_Time) :: stop_esmf_time
+    integer :: year, month, day, hour, minute, second
+    integer :: rc
+
+    call ESMF_ClockGet(clock, stopTime=stop_esmf_time, rc=rc)
+    call assert_success(rc)
+
+    call ESMF_TimeGet(stop_esmf_time, yy=year, mm=month, dd=day, &
+                      h=hour, m=minute, s=second, rc=rc)
+    call assert_success(rc)
+
+    time = datetime(year, month, day, hour, minute, second)
+
+  end function get_stop_time_from_clock
 
 
   subroutine set_field_values(field, field_values)
