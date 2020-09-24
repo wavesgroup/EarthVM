@@ -23,7 +23,7 @@ module earthvm_wrf
   implicit none
 
   private
-  public :: set_services, nests
+  public :: set_services, domains
 
   ! Thin wrapper to hold the pointer to WRF domains,
   ! parent and inner nests alike
@@ -37,7 +37,7 @@ module earthvm_wrf
   type(domain_ptr_type) :: dom(MAX_WRF_DOMAINS)
   integer :: num_wrf_domains = 0
 
-  type(earthvm_model_type), allocatable :: nests(:)
+  type(earthvm_model_type), allocatable :: domains(:)
 
 contains
 
@@ -102,11 +102,12 @@ contains
 
   !TODO allow optional import_state and export_state arguments
   ! to allow using this function for the parent domain
-  type(earthvm_model_type) function new_wrf_domain(dom, name) result(nest)
+  type(earthvm_model_type) function new_wrf_domain(dom, name, import_state, export_state) result(nest)
     ! Creates a new EarthVM model data structure
     ! given WRF domain pointer and a name as input arguments.
     type(domain), pointer, intent(in) :: dom
     character(*), intent(in) :: name
+    type(ESMF_State), intent(in out), optional :: import_state, export_state
     type(ESMF_DistGrid) :: distgrid
     type(ESMF_Grid) :: grid
     type(ESMF_Field), allocatable :: fields(:)
@@ -144,6 +145,12 @@ contains
     ]
     call ESMF_StateAdd(nest % import_state, fields, rc=rc)
     call assert_success(rc)
+
+    ! If import_state was passed as an optional argument, add the fields to it
+    if (present(import_state)) then
+      call ESMF_StateAdd(import_state, fields, rc=rc)
+      call assert_success(rc)
+    end if
 
     ! Create export fields
     fields = [                              &
@@ -217,24 +224,24 @@ contains
     call ESMF_StateAdd(nest % export_state, fields, rc=rc)
     call assert_success(rc)
 
+    ! If export_state was passed as an optional argument,
+    ! add the fields to it. 
+    if (present(export_state)) then
+      call ESMF_StateAdd(export_state, fields, rc=rc)
+      call assert_success(rc)
+    end if
+
     call nest % write_to_netcdf()
 
   end function new_wrf_domain
 
 
   subroutine model_init(gridded_component, import_state, export_state, clock, rc)
+    ! EarthVM interface to the WRF initialize procedure.
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
-    type(ESMF_DistGrid) :: distgrid
-    type(ESMF_Grid) :: grid
     integer, intent(out) :: rc
-
-    type(ESMF_Field), allocatable :: fields(:)
-    type(earthvm_model_type) :: parent_domain
-
-    integer :: ids, ide, jds, jde ! global start and end indices
-    integer :: ips, ipe, jps, jpe ! local start and end indices
 
     ! This initializes the WRF MPI communicator.
     ! Because we already initialized the communicator in ESMF,
@@ -244,115 +251,12 @@ contains
     ! Call WRF's internal init() subroutine to initialize the model
     call wrf_init()
 
-    ! Get the number of WRF domains. This won't register the nests before they start,
-    ! however it will register them even after they're destroyed.
-    num_wrf_domains = get_num_wrf_domains(head_grid)
-    call assert(num_wrf_domains >= 1 .and. num_wrf_domains <= 21, &
-                'WRF namelist parameter max_dom must be in the range [1, 21]')
-    if (earthvm_get_local_pet() == 0) print *, 'num_wrf_domains', num_wrf_domains
-
     ! Associate the 1st domain pointer with the parent domain
     dom(1) % ptr => head_grid
 
-    ! Initialize parent domain grid and import and export states
-    !parent_domain = new_wrf_domain(dom(1) % ptr, 'wrf_d01')
-    !import_state = parent_domain % import_state
-    !export_state = parent_domain % export_state
-
-    ! Initialize nests as an empty array
-    nests = [earthvm_model_type ::]
-
-    call get_wrf_array_bounds(dom(1) % ptr, ids, ide, jds, jde, ips, ipe, jps, jpe)
-
-    distgrid = create_distgrid([ips, jps], [ipe, jpe], [ids, jds], [ide, jde])
-    grid = create_grid(distgrid, 'WRF grid', &
-                       lon=head_grid % xlong(ips:ipe, jps:jpe), &
-                       lat=head_grid % xlat(ips:ipe, jps:jpe), &
-                       mask=nint(head_grid % xland(ips:ipe, jps:jpe) - 1))
-
-    call write_grid_to_netcdf(grid, 'wrf_grid.nc')
-
-    fields = [create_field(grid, 'sst'),       &
-              create_field(grid, 'taux_wav'),  &
-              create_field(grid, 'tauy_wav'),  &
-              create_field(grid, 'u_current'), &
-              create_field(grid, 'v_current'), &
-              create_field(grid, 'u_stokes'),  &
-              create_field(grid, 'v_stokes')]
-    call ESMF_StateAdd(import_state, fields, rc=rc)
-    call assert_success(rc)
-
-    fields = [                              &
-      create_field(grid, 'u10'),            &
-      create_field(grid, 'v10'),            &
-      create_field(grid, 'psfc'),           &
-      create_field(grid, 'taux'),           &
-      create_field(grid, 'tauy'),           &
-      create_field(grid, 'rainrate'),       &
-      create_field(grid, 'shortwave_flux'), &
-      create_field(grid, 'total_flux'),     &
-      create_field(grid, 'rhoa'),           &
-      create_field(grid, 'wspd'),           &
-      create_field(grid, 'wdir')            &
-    ]
-
-    call set_field_values(fields(1), head_grid % u10(ips:ipe,jps:jpe))
-    call set_field_values(fields(2), head_grid % v10(ips:ipe,jps:jpe))
-    call set_field_values(fields(3), head_grid % psfc(ips:ipe,jps:jpe))
-    call set_field_values(fields(9), 1 / head_grid % alt(ips:ipe,1,jps:jpe))
-
-    block
-      real :: wspd(ips:ipe,jps:jpe)
-      real :: wdir(ips:ipe,jps:jpe)
-      real :: taux(ips:ipe,jps:jpe)
-      real :: tauy(ips:ipe,jps:jpe)
-      wspd = sqrt(head_grid % u10(ips:ipe,jps:jpe)**2 &
-                + head_grid % v10(ips:ipe,jps:jpe)**2)
-      wdir = atan2(head_grid % v10(ips:ipe,jps:jpe), head_grid % u10(ips:ipe,jps:jpe))
-      taux = head_grid % ust(ips:ipe,jps:jpe)**2 * head_grid % u10(ips:ipe,jps:jpe) &
-           / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
-      tauy = head_grid % ust(ips:ipe,jps:jpe)**2 * head_grid % v10(ips:ipe,jps:jpe) &
-           / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
-      call set_field_values(fields(4), taux)
-      call set_field_values(fields(5), tauy)
-      call set_field_values(fields(10), wspd)
-      call set_field_values(fields(11), wdir)
-    end block
-
-    block
-      real :: rainrate(ips:ipe,jps:jpe)
-      rainrate = (head_grid % raincv(ips:ipe,jps:jpe)   & ! from cumulus param.
-                + head_grid % rainncv(ips:ipe,jps:jpe)) & ! explicit
-                / head_grid % time_step                 & ! mm / time_step -> mm / s
-                * 1e-3                                    ! mm / s -> m / s
-      call set_field_values(fields(6), rainrate)
-    end block
-
-    block
-      real :: swflux(ips:ipe,jps:jpe)
-      swflux = head_grid % swdown(ips:ipe,jps:jpe) &
-             * (1 - head_grid % albedo(ips:ipe,jps:jpe))
-      call set_field_values(fields(7), swflux)
-    end block
-
-    block
-      real :: radiative_flux(ips:ipe,jps:jpe)
-      real :: enthalpy_flux(ips:ipe,jps:jpe)
-      real(ESMF_KIND_R8), parameter :: sigma = 5.67037321d-8
-      integer :: i, j
-      do concurrent(i = ips:ipe, j = jps:jpe)
-        ! positive downward (into the ocean)
-        radiative_flux(i,j) = (head_grid % swdown(i,j) + head_grid % glw(i,j)) &
-                            * (1 - head_grid % albedo(i,j))                    &
-                            - head_grid % emiss(i,j) * sigma * head_grid % tsk(i,j)**4
-        ! positive downward (into the ocean)
-        enthalpy_flux(i,j) = - head_grid % hfx(i,j) - head_grid % lh(i,j)
-      end do
-      call set_field_values(fields(8), radiative_flux + enthalpy_flux)
-    end block
-
-    call ESMF_StateAdd(export_state, fields, rc=rc)
-    call assert_success(rc)
+    ! Initialize parent domain grid and import and export states,
+    ! and add it to the domains list
+    domains = [new_wrf_domain(dom(1) % ptr, 'wrf', import_state, export_state)]
 
     rc = ESMF_SUCCESS
   end subroutine model_init
@@ -395,39 +299,26 @@ contains
     ! Loop over active nests and if EarthVM model structure
     ! for the nest has not been created yet, do so now
     do n = 2, num_wrf_domains
-      if (size(nests) < n - 1) then
+      if (size(domains) < n) then
         !TODO for fixed nests we need to create them only once
         !TODO for moving nests we neet to re-create on every move
-        nest = new_wrf_domain(dom(n) % ptr, 'wrf_d02')
-        nests = [nests, nest]
+        nest = new_wrf_domain(dom(n) % ptr, 'wrf_d02') !TODO generalize nest string
+        domains = [domains, nest]
       end if
     end do
 
     if (earthvm_get_local_pet() == 0) then
-      print *, 'num_wrf_domains', num_wrf_domains, 'size(nests)', size(nests)
+      print *, 'num_wrf_domains', num_wrf_domains, 'size(domains)', size(domains)
     end if
 
     call get_wrf_array_bounds(dom(1) % ptr, ids, ide, jds, jde, ips, ipe, jps, jpe)
 
-    ! copy values from ESMF field to the WRF data structure
-    call ESMF_StateGet(import_state, 'sst', field)
-    call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
-      head_grid % tsk(i,j) = field_values(i,j) + 273.15
+    ! Update internal WRF arrays with the values from the EarthVM import fields
+    do n = 1, num_wrf_domains
+      call set_import_fields(dom(n) % ptr, domains(n))
     end do
 
-    call ESMF_StateGet(import_state, 'taux_wav', field)
-    call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
-      head_grid % earthvm_taux(i,j) = field_values(i,j)
-    end do
-
-    call ESMF_StateGet(import_state, 'tauy_wav', field)
-    call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
-      head_grid % earthvm_tauy(i,j) = field_values(i,j)
-    end do
-
+    !TODO this will go to set_import_fields
     ! Set roughness length in WRF
     stress_coupling: block
       real :: psix10, wspd10, ust
@@ -455,30 +346,6 @@ contains
       end do
 
     end block stress_coupling
-
-    call ESMF_StateGet(import_state, 'u_current', field)
-    call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
-      head_grid % earthvm_u_current(i,j) = field_values(i,j)
-    end do
-
-    call ESMF_StateGet(import_state, 'v_current', field)
-    call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
-      head_grid % earthvm_v_current(i,j) = field_values(i,j)
-    end do
-
-    call ESMF_StateGet(import_state, 'u_stokes', field)
-    call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
-      head_grid % earthvm_u_stokes(i,j) = field_values(i,j)
-    end do
-
-    call ESMF_StateGet(import_state, 'v_stokes', field)
-    call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, head_grid % xland(i,j) > 1.5)
-      head_grid % earthvm_v_stokes(i,j) = field_values(i,j)
-    end do
 
     call set_wrf_clock(clock)
     call wrf_run()
@@ -579,6 +446,71 @@ contains
     call wrf_finalize(no_shutdown=.true.)
     rc = ESMF_SUCCESS
   end subroutine model_finalize
+
+
+  subroutine set_import_fields(dom, wrf_domain)
+    ! Updates the WRF arrays with the values from the import fields.
+    type(domain), pointer, intent(in) :: dom
+    type(earthvm_model_type), intent(in) :: wrf_domain
+    type(ESMF_Field) :: field
+    real, pointer :: field_values(:,:)
+    integer :: lb(2), ub(2)
+    integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
+    integer :: i, j
+
+    ! Get the WRF start and end bounds in x and y dimensions
+    call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
+
+    ! Sea surface temperature
+    call ESMF_StateGet(wrf_domain % import_state, 'sst', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+      dom % tsk(i,j) = field_values(i,j) + 273.15
+    end do
+
+    ! Zonal surface current
+    call ESMF_StateGet(wrf_domain % import_state, 'u_current', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+      dom % earthvm_u_current(i,j) = field_values(i,j)
+    end do
+
+    ! Meridional surface current
+    call ESMF_StateGet(wrf_domain % import_state, 'v_current', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+      dom % earthvm_v_current(i,j) = field_values(i,j)
+    end do
+
+    ! Zonal component of the wave-dependent stress vector
+    call ESMF_StateGet(wrf_domain % import_state, 'taux_wav', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+      dom % earthvm_taux(i,j) = field_values(i,j)
+    end do
+
+    ! Meridional component of the wave-dependent stress vector
+    call ESMF_StateGet(wrf_domain % import_state, 'tauy_wav', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+      dom % earthvm_tauy(i,j) = field_values(i,j)
+    end do
+
+    ! Zonal Stokes drift
+    call ESMF_StateGet(wrf_domain % import_state, 'u_stokes', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+      dom % earthvm_u_stokes(i,j) = field_values(i,j)
+    end do
+
+    ! Meridional Stokes drift
+    call ESMF_StateGet(wrf_domain % import_state, 'v_stokes', field)
+    call get_field_values(field, field_values, lb, ub)
+    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+      dom % earthvm_v_stokes(i,j) = field_values(i,j)
+    end do
+
+  end subroutine set_import_fields
 
 
   subroutine set_wrf_clock(clock)
