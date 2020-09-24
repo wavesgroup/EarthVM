@@ -1269,8 +1269,7 @@ i1      real    ht_loc         ij      misc         1         -     -
 state   integer  shadowmask    ij      misc         1         -     - 
 state   integer min_ptchsz     -       misc         1         -     r
 
-#state   real    TSK            ij      misc         1         -     i012rhd=(interp_mask_field:lu_index,iswater)u=(copy_fcnm)    "TSK"                   "SURFACE SKIN TEMPERATURE"                  "K"
-state   real    TSK            ij      misc         1         -     i012rhdf=(interp_fcn)u=(copy_fcnm)    "TSK"                   "SURFACE SKIN TEMPERATURE"                  "K"
+state   real    TSK            ij      misc         1         -     i012rhd=(interp_mask_field:lu_index,iswater)u=(copy_fcnm)    "TSK"                   "SURFACE SKIN TEMPERATURE"                  "K"
 state   real    dfi_TSK        ij      misc         1         -     r                       "TSK_dfi"               "saved SURFACE SKIN TEMPERATURE"
 state   real    TSK_SAVE       ij      misc         1         -     r         "TSK_SAVE" "SURFACE SKIN TEMPERATURE, EXTRA COPY FOR SEA ICE TESTS in REAL"       "K"
 state   real    u_base         k       misc         1         -     ir        "u_base"                "BASE STATE X WIND IN IDEALIZED CASES"         ""      
@@ -1294,14 +1293,6 @@ state   real    mf_fft         -       misc         -         -     r        "mf
 state   real    p_top          -       misc         -         -     irh       "p_top"                "PRESSURE TOP OF THE MODEL"  "Pa"
 state logical got_var_sso	-	misc	    -	      -     i02r  "got_var_sso"		     "whether VAR_SSO was included in WPS output (beginning V3.4)" ""
 state logical v4_metgrid 	-	misc	    -	      -     -     "v4_metgrid"		     "for real, T/F: identify if this is v4 metgrid data" ""
-
-# EarthVM variables for coupling with ocean waves and circulation
-state real earthvm_taux      ij misc 1 - ihdf=(interp_fcn) "earthvm_taux"      "x-component of wind stress from EarthVM" "N/m^2"
-state real earthvm_tauy      ij misc 1 - ihdf=(interp_fcn) "earthvm_tauy"      "y-component of wind stress from EarthVM" "N/m^2"
-state real earthvm_u_current ij misc 1 - ihdf=(interp_fcn) "earthvm_u_current" "x-component of Eulerian surface current from EarthVM" "m/s"
-state real earthvm_v_current ij misc 1 - ihdf=(interp_fcn) "earthvm_v_current" "y-component of Eulerian surface current from EarthVM" "m/s"
-state real earthvm_u_stokes  ij misc 1 - ihdf=(interp_fcn) "earthvm_u_stokes"  "x-component of surface Stokes drift from EarthVM" "m/s"
-state real earthvm_v_stokes  ij misc 1 - ihdf=(interp_fcn) "earthvm_v_stokes"  "y-component of surface Stokes drift from EarthVM" "m/s"
 
 #BSINGH - Adding all these variables for CuP scheme[any var before t00]
 state   real    lat_ll_t       -       dyn_em       -         -     ir       "lat_ll_t"              "latitude lower left, temp point" "degrees"
@@ -3408,3 +3399,10 @@ xpose XPOSE_SPECTRAL_NUDGING dyn_em dif_analysis,dif_xxx,dif_yyy
 package   no_fft_used    fft_used==0                  -             -
 package   any_fft_used   fft_used==1                  -             state:t_xxx,u_xxx,ru_xxx,v_xxx,rv_xxx,w_xxx,ww_xxx,ph_xxx,dum_yyy,fourd_xxx
 
+# EarthVM variables for coupling with ocean waves and circulation
+state real earthvm_taux      ij misc 1 - ih "earthvm_taux"      "x-component of wind stress from EarthVM" "N/m^2"
+state real earthvm_tauy      ij misc 1 - ih "earthvm_tauy"      "y-component of wind stress from EarthVM" "N/m^2"
+state real earthvm_u_current ij misc 1 - ih "earthvm_u_current" "x-component of Eulerian surface current from EarthVM" "m/s"
+state real earthvm_v_current ij misc 1 - ih "earthvm_v_current" "y-component of Eulerian surface current from EarthVM" "m/s"
+state real earthvm_u_stokes  ij misc 1 - ih "earthvm_u_stokes"  "x-component of surface Stokes drift from EarthVM" "m/s"
+state real earthvm_v_stokes  ij misc 1 - ih "earthvm_v_stokes"  "y-component of surface Stokes drift from EarthVM" "m/s"
