@@ -29,17 +29,18 @@ module earthvm_model
     logical :: nest = .false.
     logical :: verbose = .false.
   contains
-    procedure, pass(self) :: finalize
-    procedure, pass(self) :: force
-    procedure, pass(self) :: force_single_field
-    procedure, pass(self) :: get_current_time
-    procedure, pass(self) :: get_field
-    procedure, pass(self) :: get_field_data
-    procedure, pass(self) :: initialize
-    procedure, pass(self) :: run
-    procedure, pass(self) :: set_forcing
-    procedure, pass(self) :: set_services
-    procedure, pass(self) :: write_to_netcdf
+    procedure, pass(self), public :: finalize
+    procedure, pass(self), public :: get_current_time
+    procedure, pass(self), public :: get_field
+    procedure, pass(self), public :: get_field_data
+    procedure, pass(self), public :: initialize
+    procedure, pass(self), public :: run
+    procedure, pass(self), public :: set_forcing
+    procedure, pass(self), public :: write_to_netcdf
+    procedure, pass(self), private :: force_array
+    procedure, pass(self), private :: force_scalar
+    procedure, pass(self), private :: force_single_field
+    generic, public :: force => force_array, force_scalar
   end type earthvm_model_type
 
   interface earthvm_model_type
@@ -126,32 +127,41 @@ contains
   end function earthvm_model_constructor
 
 
-  subroutine force(self, target_model)
+  subroutine force_scalar(self, target_model)
     ! Regrids the export fields from this model to the target model.
     ! This affects only ESMF fields involved.
     ! To force the target model in effect, the regridded values must be copied
     ! to the native model data structure.
     class(earthvm_model_type), intent(in out) :: self, target_model
     integer :: n
-    !real :: t1, t2
 
-    !call cpu_time(t1)
-
-    ! loop over forcings on this model
+    ! Loop over forcings on this model
     do n = 1, size(self % forcing)
-      if (self % forcing(n) % target_model_name == target_model % name) then
+      !TODO The check for regrid consistency in force_single_field needs to be fixed;
+      !TODO As a quick and dirty hack, compare only first 3
+      if (self % forcing(n) % target_model_name(1:3) == target_model % name(1:3)) then
         call self % force_single_field(self % forcing(n) % source_field_name, &
                                        target_model,                          &
                                        self % forcing(n) % target_field_name)
       end if
     end do
 
-    !call cpu_time(t2)
-    !if (earthvm_get_local_pet() == 0) &
-    !  print *, 'EarthVM: ' // self % name // ' -> ' // target_model % name &
-    !           // ' force elapsed', t2 - t1, 'seconds.'
+  end subroutine force_scalar
 
-  end subroutine force
+
+  subroutine force_array(self, target_models)
+    ! Thin wrapper around force_scalar() which allows
+    ! running it for an array of target models.
+    class(earthvm_model_type), intent(in out) :: self
+    class(earthvm_model_type), intent(in out) :: target_models(:)
+    integer :: n
+
+    ! Loop over all target models
+    do n = 1, size(target_models)
+      call self % force(target_models(n))
+    end do
+
+  end subroutine force_array
 
 
   subroutine force_single_field(self, source_field_name, target_model, target_field_name)
@@ -169,6 +179,7 @@ contains
     ! search for the correct regrid instance
     found = .false.
     do n = 1, size(self % regrid)
+      !TODO Check not only the name but grid also;
       if (self % regrid(n) % name == target_model % name) then
         found = .true.
         exit
@@ -329,23 +340,6 @@ contains
   end subroutine set_forcing
 
   
-  subroutine set_services(self, user_routine)
-    class(earthvm_model_type), intent(in out) :: self
-    interface
-      subroutine user_routine(gridcomp, rc)
-        import :: ESMF_GridComp
-        type(ESMF_GridComp) :: gridcomp
-        integer, intent(out) :: rc
-      end subroutine user_routine
-    end interface
-    integer :: rc
-    call ESMF_GridCompSetServices(gridcomp    = self % gridded_component, &
-                                  userRoutine = user_routine,             &
-                                  rc          = rc)
-    call assert_success(rc)
-  end subroutine set_services
-
-
   subroutine write_to_netcdf(self)
     ! Writes all model fields into a NetCDF file.
     class(earthvm_model_type), intent(in) :: self
