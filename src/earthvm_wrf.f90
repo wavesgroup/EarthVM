@@ -100,6 +100,128 @@ contains
   end subroutine set_services
 
 
+  !TODO allow optional import_state and export_state arguments
+  ! to allow using this function for the parent domain
+  type(earthvm_model_type) function new_wrf_domain(dom, name) result(nest)
+    ! Creates a new EarthVM model data structure
+    ! given WRF domain pointer and a name as input arguments.
+    type(domain), pointer, intent(in) :: dom
+    character(*), intent(in) :: name
+    type(ESMF_DistGrid) :: distgrid
+    type(ESMF_Grid) :: grid
+    type(ESMF_Field), allocatable :: fields(:)
+    integer :: rc
+    integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
+
+    ! Create the new model instance.
+    ! Arguments 2-4 are not used but must be provided.
+    nest = earthvm_model_type(name, datetime(1), datetime(2), 1, set_services, nest=.true.)
+
+    ! Get the WRF start and end bounds in x and y dimensions
+    call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
+
+    ! Create the ESMF distributed grid object
+    distgrid = create_distgrid([ips, jps], [ipe, jpe], [ids, jds], [ide, jde])
+
+    ! Create the grid based on WRF latitude, longitude, and seamask arrays
+    grid = create_grid(distgrid, name // '_grid', &
+                       lon=dom % xlong(ips:ipe, jps:jpe), &
+                       lat=dom % xlat(ips:ipe, jps:jpe), &
+                       mask=nint(dom % xland(ips:ipe, jps:jpe) - 1))
+
+    ! Output the grid so we can verify that everything looks good
+    call write_grid_to_netcdf(grid, name // '_grid.nc')
+
+    ! Create import fields
+    fields = [                         &
+      create_field(grid, 'sst'),       &
+      create_field(grid, 'taux_wav'),  &
+      create_field(grid, 'tauy_wav'),  &
+      create_field(grid, 'u_current'), &
+      create_field(grid, 'v_current'), &
+      create_field(grid, 'u_stokes'),  &
+      create_field(grid, 'v_stokes')   &
+    ]
+    call ESMF_StateAdd(nest % import_state, fields, rc=rc)
+    call assert_success(rc)
+
+    ! Create export fields
+    fields = [                              &
+      create_field(grid, 'u10'),            &
+      create_field(grid, 'v10'),            &
+      create_field(grid, 'psfc'),           &
+      create_field(grid, 'taux'),           &
+      create_field(grid, 'tauy'),           &
+      create_field(grid, 'rainrate'),       &
+      create_field(grid, 'shortwave_flux'), &
+      create_field(grid, 'total_flux'),     &
+      create_field(grid, 'rhoa'),           &
+      create_field(grid, 'wspd'),           &
+      create_field(grid, 'wdir')            &
+    ]
+
+    call set_field_values(fields(1), dom % u10(ips:ipe,jps:jpe))
+    call set_field_values(fields(2), dom % v10(ips:ipe,jps:jpe))
+    call set_field_values(fields(3), dom % psfc(ips:ipe,jps:jpe))
+    call set_field_values(fields(9), 1 / dom % alt(ips:ipe,1,jps:jpe))
+
+    block
+      real :: wspd(ips:ipe,jps:jpe)
+      real :: wdir(ips:ipe,jps:jpe)
+      real :: taux(ips:ipe,jps:jpe)
+      real :: tauy(ips:ipe,jps:jpe)
+      wspd = sqrt(dom % u10(ips:ipe,jps:jpe)**2 &
+                + dom % v10(ips:ipe,jps:jpe)**2)
+      wdir = atan2(dom % v10(ips:ipe,jps:jpe), dom % u10(ips:ipe,jps:jpe))
+      taux = dom % ust(ips:ipe,jps:jpe)**2 * dom % u10(ips:ipe,jps:jpe) &
+           / (wspd * dom % alt(ips:ipe,1,jps:jpe))
+      tauy = dom % ust(ips:ipe,jps:jpe)**2 * dom % v10(ips:ipe,jps:jpe) &
+           / (wspd * dom % alt(ips:ipe,1,jps:jpe))
+      call set_field_values(fields(4), taux)
+      call set_field_values(fields(5), tauy)
+      call set_field_values(fields(10), wspd)
+      call set_field_values(fields(11), wdir)
+    end block
+
+    block
+      real :: rainrate(ips:ipe,jps:jpe)
+      rainrate = (dom % raincv(ips:ipe,jps:jpe)   & ! from cumulus param.
+                + dom % rainncv(ips:ipe,jps:jpe)) & ! explicit
+                / dom % time_step                 & ! mm / time_step -> mm / s
+                * 1e-3                              ! mm / s -> m / s
+      call set_field_values(fields(6), rainrate)
+    end block
+
+    block
+      real :: swflux(ips:ipe,jps:jpe)
+      swflux = dom % swdown(ips:ipe,jps:jpe) * (1 - dom % albedo(ips:ipe,jps:jpe))
+      call set_field_values(fields(7), swflux)
+    end block
+
+    block
+      real :: radiative_flux(ips:ipe,jps:jpe)
+      real :: enthalpy_flux(ips:ipe,jps:jpe)
+      real(ESMF_KIND_R8), parameter :: sigma = 5.670374419d-8
+      integer :: i, j
+      do concurrent(i = ips:ipe, j = jps:jpe)
+        ! positive downward (into the ocean)
+        radiative_flux(i,j) = (dom % swdown(i,j) + dom % glw(i,j)) &
+                            * (1 - dom % albedo(i,j))                    &
+                            - dom % emiss(i,j) * sigma * dom % tsk(i,j)**4
+        ! positive downward (into the ocean)
+        enthalpy_flux(i,j) = - dom % hfx(i,j) - dom % lh(i,j)
+      end do
+      call set_field_values(fields(8), radiative_flux + enthalpy_flux)
+    end block
+
+    call ESMF_StateAdd(nest % export_state, fields, rc=rc)
+    call assert_success(rc)
+
+    call nest % write_to_netcdf()
+
+  end function new_wrf_domain
+
+
   subroutine model_init(gridded_component, import_state, export_state, clock, rc)
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
@@ -109,6 +231,7 @@ contains
     integer, intent(out) :: rc
 
     type(ESMF_Field), allocatable :: fields(:)
+    type(earthvm_model_type) :: parent_domain
 
     integer :: ids, ide, jds, jde ! global start and end indices
     integer :: ips, ipe, jps, jpe ! local start and end indices
@@ -130,6 +253,11 @@ contains
 
     ! Associate the 1st domain pointer with the parent domain
     dom(1) % ptr => head_grid
+
+    ! Initialize parent domain grid and import and export states
+    !parent_domain = new_wrf_domain(dom(1) % ptr, 'wrf_d01')
+    !import_state = parent_domain % import_state
+    !export_state = parent_domain % export_state
 
     ! Initialize nests as an empty array
     nests = [earthvm_model_type ::]
@@ -166,7 +294,7 @@ contains
       create_field(grid, 'rhoa'),           &
       create_field(grid, 'wspd'),           &
       create_field(grid, 'wdir')            &
-      ]
+    ]
 
     call set_field_values(fields(1), head_grid % u10(ips:ipe,jps:jpe))
     call set_field_values(fields(2), head_grid % v10(ips:ipe,jps:jpe))
@@ -196,7 +324,7 @@ contains
       rainrate = (head_grid % raincv(ips:ipe,jps:jpe)   & ! from cumulus param.
                 + head_grid % rainncv(ips:ipe,jps:jpe)) & ! explicit
                 / head_grid % time_step                 & ! mm / time_step -> mm / s
-                * 1d-3                                    ! mm / s -> m / s
+                * 1e-3                                    ! mm / s -> m / s
       call set_field_values(fields(6), rainrate)
     end block
 
@@ -268,29 +396,10 @@ contains
     ! for the nest has not been created yet, do so now
     do n = 2, num_wrf_domains
       if (size(nests) < n - 1) then
-
-        nest = earthvm_model_type('wrf_d02', & ! generalize later
-                                  get_current_time_from_clock(clock), & ! dummy value (not used)
-                                  get_stop_time_from_clock(clock), & ! dummy value (not used)
-                                  1, & ! dummy value (not important)
-                                  set_services)
-
-        if (earthvm_get_local_pet() == 0) print *, 'Nest initialized!'
-
-        call get_wrf_array_bounds(dom(n) % ptr, ids, ide, jds, jde, ips, ipe, jps, jpe)
-        if (earthvm_get_local_pet() == 0) print *, 'ids, ide, jds, jde, ips, ipe, jps, jpe', &
-                                                    ids, ide, jds, jde, ips, ipe, jps, jpe
-
-        distgrid = create_distgrid([ips, jps], [ipe, jpe], [ids, jds], [ide, jde])
-        grid = create_grid(distgrid, 'WRF nest grid', &
-                           lon=dom(n) % ptr % xlong(ips:ipe, jps:jpe), &
-                           lat=dom(n) % ptr % xlat(ips:ipe, jps:jpe), &
-                           mask=nint(dom(n) % ptr % xland(ips:ipe, jps:jpe) - 1))
-
-        call write_grid_to_netcdf(grid, 'wrf_nest_grid.nc')
-
+        !TODO for fixed nests we need to create them only once
+        !TODO for moving nests we neet to re-create on every move
+        nest = new_wrf_domain(dom(n) % ptr, 'wrf_d02')
         nests = [nests, nest]
-
       end if
     end do
 
