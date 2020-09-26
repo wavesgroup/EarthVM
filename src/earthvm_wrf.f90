@@ -258,6 +258,8 @@ contains
     ! and add it to the domains list
     domains = [new_wrf_domain(dom(1) % ptr, 'wrf', import_state, export_state)]
 
+    !TODO set export fields here
+
     rc = ESMF_SUCCESS
   end subroutine model_init
 
@@ -318,36 +320,10 @@ contains
       call set_import_fields(dom(n) % ptr, domains(n))
     end do
 
-    !TODO this will go to set_import_fields
-    ! Set roughness length in WRF
-    stress_coupling: block
-      real :: psix10, wspd10, ust
-      real :: psim10(ips:ipe,jps:jpe) ! stability function for momentum at 10-m height
-      real, pointer :: taux(:,:), tauy(:,:)
-      real, parameter :: von_karman_constant = 0.4
-
-      call ESMF_StateGet(import_state, 'taux_wav', field)
-      call get_field_values(field, taux, lb, ub)
-
-      call ESMF_StateGet(import_state, 'tauy_wav', field)
-      call get_field_values(field, tauy, lb, ub)
-
-      do j = jps, jpe
-        do i = ips, ipe
-          if (head_grid % xland(i,j) > 1.5) then
-            !wspd10 = sqrt(head_grid % u10(i,j)**2 + head_grid % v10(i,j)**2)
-            !psix10 = wspd10 * head_grid % fm(i,j) / head_grid % wspd(i,j)
-            !psim10(i,j) = log(10 / head_grid % znt(i,j)) - psix10
-            !ust = sqrt(sqrt(taux(i,j)**2 + tauy(i,j)**2) * head_grid % alt(i,1,j))
-            !head_grid % znt(i,j) = 10 * exp(- von_karman_constant * wspd10 / ust - psim10(i,j))
-            !head_grid % znt(i,j) = max(head_grid % znt(i,j), 1e-5)
-          end if
-        end do
-      end do
-
-    end block stress_coupling
-
+    ! Sychronize WRF's internal clock with the EarthVM clock
     call set_wrf_clock(clock)
+
+    ! Run the model for one time step
     call wrf_run()
     
     ! flip the coupling switch in the WRF surface layer module to override
@@ -509,6 +485,35 @@ contains
     do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
       dom % earthvm_v_stokes(i,j) = field_values(i,j)
     end do
+    
+    ! TODO move this to a dedicated physics module
+    ! Set roughness length in WRF
+    stress_coupling: block
+      real :: psix10, wspd10, ust
+      real :: psim10(ips:ipe,jps:jpe) ! stability function for momentum at 10-m height
+      real, pointer :: taux(:,:), tauy(:,:)
+      real, parameter :: von_karman_constant = 0.4
+
+      call ESMF_StateGet(wrf_domain % import_state, 'taux_wav', field)
+      call get_field_values(field, taux, lb, ub)
+
+      call ESMF_StateGet(wrf_domain % import_state, 'tauy_wav', field)
+      call get_field_values(field, tauy, lb, ub)
+
+      do j = jps, jpe
+        do i = ips, ipe
+          if (dom % xland(i,j) > 1.5) then
+            !wspd10 = sqrt(dom % u10(i,j)**2 + dom % v10(i,j)**2)
+            !psix10 = wspd10 * dom % fm(i,j) / dom % wspd(i,j)
+            !psim10(i,j) = log(10 / dom % znt(i,j)) - psix10
+            !ust = sqrt(sqrt(taux(i,j)**2 + tauy(i,j)**2) * dom % alt(i,1,j))
+            !head_grid % znt(i,j) = 10 * exp(- von_karman_constant * wspd10 / ust - psim10(i,j))
+            !head_grid % znt(i,j) = max(dom % znt(i,j), 1e-5)
+          end if
+        end do
+      end do
+
+    end block stress_coupling
 
   end subroutine set_import_fields
 
