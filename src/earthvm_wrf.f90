@@ -258,7 +258,8 @@ contains
     ! and add it to the domains list
     domains = [new_wrf_domain(dom(1) % ptr, 'wrf', import_state, export_state)]
 
-    !TODO set export fields here
+    ! Export fields for coupling with other models
+    call set_export_fields(dom(1) % ptr, domains(1))
 
     rc = ESMF_SUCCESS
   end subroutine model_init
@@ -274,16 +275,13 @@ contains
     integer, intent(out) :: rc
 
     type(earthvm_model_type) :: nest
-    type(ESMF_DistGrid) :: distgrid
-    type(ESMF_Grid) :: grid
+    integer :: n
 
-    type(ESMF_Field) :: field
-    integer :: ids, ide, jds, jde
-    integer :: ips, ipe, jps, jpe
-    integer :: i, j, n
-
-    real, pointer :: field_values(:,:)
-    integer :: lb(2), ub(2)
+    ! Flip the coupling switch in the WRF surface layer module to override
+    ! WRF's calculation of the surface roughness length
+    ! TODO set dynamically from configuration
+    earthvm_momentum_coupling = .false.
+    !earthvm_momentum_coupling = .true.
 
     ! Associate the first domain with the WRF parent domain
     dom(1) % ptr => head_grid
@@ -313,11 +311,10 @@ contains
       print *, 'num_wrf_domains', num_wrf_domains, 'size(domains)', size(domains)
     end if
 
-    call get_wrf_array_bounds(dom(1) % ptr, ids, ide, jds, jde, ips, ipe, jps, jpe)
-
     ! Update internal WRF arrays with the values from the EarthVM import fields
     do n = 1, num_wrf_domains
       call set_import_fields(dom(n) % ptr, domains(n))
+      !call set_roughness_length(dom(n) % ptr, domains(n)) !TODO currently this segfaults
     end do
 
     ! Sychronize WRF's internal clock with the EarthVM clock
@@ -326,89 +323,10 @@ contains
     ! Run the model for one time step
     call wrf_run()
     
-    ! flip the coupling switch in the WRF surface layer module to override
-    ! WRF's calculation of the surface roughness length
-    earthvm_momentum_coupling = .false.
-
-    call ESMF_StateGet(export_state, 'u10', field)
-    call set_field_values(field, head_grid % u10(ips:ipe,jps:jpe))
-
-    call ESMF_StateGet(export_state, 'v10', field)
-    call set_field_values(field, head_grid % v10(ips:ipe,jps:jpe))
-
-    call ESMF_StateGet(export_state, 'psfc', field)
-    call set_field_values(field, head_grid % psfc(ips:ipe,jps:jpe))
-    
-    call ESMF_StateGet(export_state, 'rhoa', field)
-    call set_field_values(field, 1 / head_grid % alt(ips:ipe,1,jps:jpe))
-
-    block
-      real :: wspd(ips:ipe,jps:jpe)
-      real :: wdir(ips:ipe,jps:jpe)
-      real :: taux(ips:ipe,jps:jpe)
-      real :: tauy(ips:ipe,jps:jpe)
-      
-      wspd = sqrt(head_grid % u10(ips:ipe,jps:jpe)**2 &
-                + head_grid % v10(ips:ipe,jps:jpe)**2)
-      wdir = atan2(head_grid % v10(ips:ipe,jps:jpe), head_grid % u10(ips:ipe,jps:jpe))
-      
-      call ESMF_StateGet(export_state, 'wspd', field)
-      call set_field_values(field, wspd)
-      
-      call ESMF_StateGet(export_state, 'wdir', field)
-      call set_field_values(field, wdir)
-      
-      taux = head_grid % ust(ips:ipe,jps:jpe)**2 * head_grid % u10(ips:ipe,jps:jpe) &
-           / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
-      tauy = head_grid % ust(ips:ipe,jps:jpe)**2 * head_grid % v10(ips:ipe,jps:jpe) &
-           / (wspd * head_grid % alt(ips:ipe,1,jps:jpe))
-
-      call ESMF_StateGet(export_state, 'taux', field)
-      call set_field_values(field, taux)
-
-      call ESMF_StateGet(export_state, 'tauy', field)
-      call set_field_values(field, tauy)
-
-    end block
-
-    !TODO force ustara in HYCOM based on taux and tauy
-
-    block
-      ! precipitation minus evaporation
-      real :: rainrate(ips:ipe,jps:jpe)
-      rainrate = ((head_grid % raincv(ips:ipe,jps:jpe)   & ! from cumulus param.
-                 + head_grid % rainncv(ips:ipe,jps:jpe)) & ! explicit
-                 / head_grid % time_step                 & ! mm / time_step -> mm / s
-                 - head_grid % qfx(ips:ipe,jps:jpe))     &
-                 * 1d-3                                    ! mm / s -> m / s
-      call ESMF_StateGet(export_state, 'rainrate', field)
-      call set_field_values(field, rainrate)
-    end block
-
-    block
-      real :: swflux(ips:ipe,jps:jpe)
-      swflux = head_grid % swdown(ips:ipe,jps:jpe) &
-             * (1 - head_grid % albedo(ips:ipe,jps:jpe))
-      call ESMF_StateGet(export_state, 'shortwave_flux', field)
-      call set_field_values(field, swflux)
-    end block
-
-    block
-      real :: radiative_flux(ips:ipe,jps:jpe)
-      real :: enthalpy_flux(ips:ipe,jps:jpe)
-      real(ESMF_KIND_R8), parameter :: sigma = 5.67037321d-8
-      integer :: i, j
-      do concurrent(i = ips:ipe, j = jps:jpe)
-        ! positive downward (into the ocean)
-        radiative_flux(i,j) = (head_grid % swdown(i,j) + head_grid % glw(i,j)) &
-                            * (1 - head_grid % albedo(i,j))                    &
-                            - head_grid % emiss(i,j) * sigma * head_grid % tsk(i,j)**4
-        ! positive downward (into the ocean)
-        enthalpy_flux(i,j) = - head_grid % hfx(i,j) - head_grid % lh(i,j)
-      end do
-      call ESMF_StateGet(export_state, 'total_flux', field)
-      call set_field_values(field, radiative_flux + enthalpy_flux)
-    end block
+    ! Export fields for coupling with other models
+    do n = 1, num_wrf_domains
+      call set_export_fields(dom(n) % ptr, domains(n))
+    end do
 
     rc = ESMF_SUCCESS
   end subroutine model_run
@@ -485,37 +403,148 @@ contains
     do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
       dom % earthvm_v_stokes(i,j) = field_values(i,j)
     end do
-    
-    ! TODO move this to a dedicated physics module
-    ! Set roughness length in WRF
-    stress_coupling: block
-      real :: psix10, wspd10, ust
-      real :: psim10(ips:ipe,jps:jpe) ! stability function for momentum at 10-m height
-      real, pointer :: taux(:,:), tauy(:,:)
-      real, parameter :: von_karman_constant = 0.4
-
-      call ESMF_StateGet(wrf_domain % import_state, 'taux_wav', field)
-      call get_field_values(field, taux, lb, ub)
-
-      call ESMF_StateGet(wrf_domain % import_state, 'tauy_wav', field)
-      call get_field_values(field, tauy, lb, ub)
-
-      do j = jps, jpe
-        do i = ips, ipe
-          if (dom % xland(i,j) > 1.5) then
-            !wspd10 = sqrt(dom % u10(i,j)**2 + dom % v10(i,j)**2)
-            !psix10 = wspd10 * dom % fm(i,j) / dom % wspd(i,j)
-            !psim10(i,j) = log(10 / dom % znt(i,j)) - psix10
-            !ust = sqrt(sqrt(taux(i,j)**2 + tauy(i,j)**2) * dom % alt(i,1,j))
-            !head_grid % znt(i,j) = 10 * exp(- von_karman_constant * wspd10 / ust - psim10(i,j))
-            !head_grid % znt(i,j) = max(dom % znt(i,j), 1e-5)
-          end if
-        end do
-      end do
-
-    end block stress_coupling
 
   end subroutine set_import_fields
+
+
+  subroutine set_export_fields(dom, wrf_domain)
+    ! Updates the export fields for exchange with other models.
+    type(domain), pointer, intent(in) :: dom
+    type(earthvm_model_type), intent(in) :: wrf_domain
+    type(ESMF_Field) :: field
+    real, pointer :: field_values(:,:)
+    integer :: lb(2), ub(2)
+    integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
+    integer :: i, j
+
+    ! Get the WRF start and end bounds in x and y dimensions
+    call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
+
+    ! Set x-component of 10-m wind
+    call ESMF_StateGet(wrf_domain % export_state, 'u10', field)
+    call set_field_values(field, dom % u10(ips:ipe,jps:jpe))
+
+    ! Set y-component of 10-m wind
+    call ESMF_StateGet(wrf_domain % export_state, 'v10', field)
+    call set_field_values(field, dom % v10(ips:ipe,jps:jpe))
+
+    ! Set surface air pressure
+    call ESMF_StateGet(wrf_domain % export_state, 'psfc', field)
+    call set_field_values(field, dom % psfc(ips:ipe,jps:jpe))
+    
+    ! Set air density in the lowest model layer
+    call ESMF_StateGet(wrf_domain % export_state, 'rhoa', field)
+    call set_field_values(field, 1 / dom % alt(ips:ipe,1,jps:jpe))
+
+    block
+      real :: wspd(ips:ipe,jps:jpe)
+      real :: wdir(ips:ipe,jps:jpe)
+      real :: taux(ips:ipe,jps:jpe)
+      real :: tauy(ips:ipe,jps:jpe)
+
+      wspd = sqrt(dom % u10(ips:ipe,jps:jpe)**2 &
+                + dom % v10(ips:ipe,jps:jpe)**2)
+      wdir = atan2(dom % v10(ips:ipe,jps:jpe), dom % u10(ips:ipe,jps:jpe))
+
+      ! Set 10-m wind speed
+      call ESMF_StateGet(wrf_domain % export_state, 'wspd', field)
+      call set_field_values(field, wspd)
+
+      ! Set 10-m wind direction
+      call ESMF_StateGet(wrf_domain % export_state, 'wdir', field)
+      call set_field_values(field, wdir)
+
+      taux = dom % ust(ips:ipe,jps:jpe)**2 * dom % u10(ips:ipe,jps:jpe) &
+           / (wspd * dom % alt(ips:ipe,1,jps:jpe))
+      tauy = dom % ust(ips:ipe,jps:jpe)**2 * dom % v10(ips:ipe,jps:jpe) &
+           / (wspd * dom % alt(ips:ipe,1,jps:jpe))
+
+      ! Set x-component of surface stress (for coupling with ocean without waves)
+      call ESMF_StateGet(wrf_domain % export_state, 'taux', field)
+      call set_field_values(field, taux)
+
+      ! Set y-component of surface stress (for coupling with ocean without waves)
+      call ESMF_StateGet(wrf_domain % export_state, 'tauy', field)
+      call set_field_values(field, tauy)
+
+    end block
+
+    !TODO force ustara in HYCOM based on taux and tauy
+
+    ! Set precipitation minus evaporation
+    block
+      real :: rainrate(ips:ipe,jps:jpe)
+      rainrate = ((dom % raincv(ips:ipe,jps:jpe)   & ! from cumulus param.
+                 + dom % rainncv(ips:ipe,jps:jpe)) & ! explicit
+                 / dom % time_step                 & ! mm / time_step -> mm / s
+                 - dom % qfx(ips:ipe,jps:jpe))     &
+                 * 1d-3                              ! mm / s -> m / s
+      call ESMF_StateGet(wrf_domain % export_state, 'rainrate', field)
+      call set_field_values(field, rainrate)
+    end block
+
+    ! Set shortwave radiative flux
+    block
+      real :: swflux(ips:ipe,jps:jpe)
+      swflux = dom % swdown(ips:ipe,jps:jpe) &
+             * (1 - dom % albedo(ips:ipe,jps:jpe))
+      call ESMF_StateGet(wrf_domain % export_state, 'shortwave_flux', field)
+      call set_field_values(field, swflux)
+    end block
+
+    ! Set total thermal flux (radiative + enthalpy)
+    block
+      real :: radiative_flux(ips:ipe,jps:jpe)
+      real :: enthalpy_flux(ips:ipe,jps:jpe)
+      real(ESMF_KIND_R8), parameter :: sigma = 5.67037321d-8
+      do concurrent(i = ips:ipe, j = jps:jpe)
+        ! positive downward (into the ocean)
+        radiative_flux(i,j) = (dom % swdown(i,j) + dom % glw(i,j)) &
+                            * (1 - dom % albedo(i,j))              &
+                            - dom % emiss(i,j) * sigma * dom % tsk(i,j)**4
+        ! positive downward (into the ocean)
+        enthalpy_flux(i,j) = - dom % hfx(i,j) - dom % lh(i,j)
+      end do
+      call ESMF_StateGet(wrf_domain % export_state, 'total_flux', field)
+      call set_field_values(field, radiative_flux + enthalpy_flux)
+    end block
+
+  end subroutine set_export_fields
+
+
+  subroutine set_roughness_length(dom, wrf_domain)
+    ! Updates the roughness length z0 in a WRF domain instance based on the
+    ! vector stress imported from the wave model and set as ESMF fields on
+    ! wrf_domain.
+    type(domain), pointer, intent(in) :: dom
+    type(earthvm_model_type), intent(in) :: wrf_domain
+    type(ESMF_Field) :: field
+    integer :: lb(2), ub(2)
+    integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
+    integer :: i, j
+    real :: psim10, psix10, wspd10, ust
+    real, pointer :: taux(:,:), tauy(:,:)
+    real, parameter :: von_karman_constant = 0.4
+
+    ! Get the WRF start and end bounds in x and y dimensions
+    call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
+
+    call ESMF_StateGet(wrf_domain % import_state, 'taux_wav', field)
+    call get_field_values(field, taux, lb, ub)
+
+    call ESMF_StateGet(wrf_domain % import_state, 'tauy_wav', field)
+    call get_field_values(field, tauy, lb, ub)
+
+    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+      wspd10 = sqrt(dom % u10(i,j)**2 + dom % v10(i,j)**2)
+      psix10 = wspd10 * dom % fm(i,j) / dom % wspd(i,j)
+      psim10 = log(10 / dom % znt(i,j)) - psix10
+      ust = sqrt(sqrt(taux(i,j)**2 + tauy(i,j)**2) * dom % alt(i,1,j))
+      dom % znt(i,j) = 10 * exp(- von_karman_constant * wspd10 / ust - psim10)
+      dom % znt(i,j) = max(dom % znt(i,j), 1e-5)
+    end do
+
+  end subroutine set_roughness_length
 
 
   subroutine set_wrf_clock(clock)
