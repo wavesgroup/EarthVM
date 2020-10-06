@@ -3,7 +3,7 @@ program main
   use earthvm_datetime, only: datetime, timedelta
   use earthvm_model, only: earthvm_model_type
   use earthvm_state, only: earthvm_initialize, earthvm_finalize
-  use earthvm_wrf, only: set_wrf_services => set_services
+  use earthvm_wrf, only: set_wrf_services => set_services, wrf_domains => domains
   use earthvm_umwm, only: set_umwm_services => set_services
   use earthvm_hycom, only: set_hycom_services => set_services
 
@@ -18,14 +18,9 @@ program main
   call earthvm_initialize()
 
   ! Hi-res
-  atmosphere = earthvm_model_type('wrf', start_time, stop_time, 15, set_wrf_services)
-  waves = earthvm_model_type('umwm', start_time, stop_time, 15, set_umwm_services)
-  ocean = earthvm_model_type('hycom', start_time, stop_time, 15, set_hycom_services)
-  
-  ! Lo-res
-  !atmosphere = earthvm_model_type('wrf', start_time, stop_time, 45, set_wrf_services)
-  !waves = earthvm_model_type('umwm', start_time, stop_time, 45, set_umwm_services)
-  !ocean = earthvm_model_type('hycom', start_time, stop_time, 45, set_hycom_services)
+  atmosphere = earthvm_model_type('wrf', start_time, stop_time, 45, set_wrf_services)
+  waves = earthvm_model_type('umwm', start_time, stop_time, 45, set_umwm_services)
+  ocean = earthvm_model_type('hycom', start_time, stop_time, 45, set_hycom_services)
 
   ! Atmosphere coupling
   call atmosphere % set_forcing('wspd', waves, 'wspd')
@@ -70,23 +65,23 @@ program main
       call atmosphere % run()
       call atmosphere % force(ocean)
       call atmosphere % force(waves)
-      !call atmosphere % write_to_netcdf()
+      call atmosphere % write_to_netcdf()
     end if
 
     ! run waves for one time step
     if (waves % get_current_time() < time) then
       call waves % run()
-      call waves % force(atmosphere)
+      call waves % force(wrf_domains)
       call waves % force(ocean)
-      !call waves % write_to_netcdf()
+      call waves % write_to_netcdf()
     end if
 
     ! run ocean for one time step
     if (ocean % get_current_time() < time) then
       call ocean % run()
-      call ocean % force(atmosphere)
+      call ocean % force(wrf_domains)
       call ocean % force(waves)
-      !call ocean % write_to_netcdf()
+      call ocean % write_to_netcdf()
     end if
 
     ! advance master clock

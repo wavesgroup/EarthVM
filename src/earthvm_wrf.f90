@@ -100,8 +100,6 @@ contains
   end subroutine set_services
 
 
-  !TODO allow optional import_state and export_state arguments
-  ! to allow using this function for the parent domain
   type(earthvm_model_type) function new_wrf_domain(dom, name, import_state, export_state) result(nest)
     ! Creates a new EarthVM model data structure
     ! given WRF domain pointer and a name as input arguments.
@@ -307,14 +305,11 @@ contains
       end if
     end do
 
-    if (earthvm_get_local_pet() == 0) then
-      print *, 'num_wrf_domains', num_wrf_domains, 'size(domains)', size(domains)
-    end if
-
     ! Update internal WRF arrays with the values from the EarthVM import fields
     do n = 1, num_wrf_domains
       call set_import_fields(dom(n) % ptr, domains(n))
-      !call set_roughness_length(dom(n) % ptr, domains(n)) !TODO currently this segfaults
+      !TODO currently this causes the wrf_run() to segfault
+      !call set_roughness_length(dom(n) % ptr, domains(n))
     end do
 
     ! Sychronize WRF's internal clock with the EarthVM clock
@@ -543,7 +538,7 @@ contains
       dom % znt(i,j) = 10 * exp(- von_karman_constant * wspd10 / ust - psim10)
       dom % znt(i,j) = max(dom % znt(i,j), 1e-5)
     end do
-
+    
   end subroutine set_roughness_length
 
 
