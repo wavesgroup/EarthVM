@@ -3,7 +3,7 @@ module earthvm_model
   use ESMF !TODO , only: ...
   use earthvm_assert, only: assert_success
   use earthvm_datetime, only: datetime
-  use earthvm_esmf, only: get_itemlist_from_state
+  use earthvm_esmf, only: get_grid, get_itemlist_from_state
   use earthvm_io, only: write_fields_to_netcdf
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_pet_count, earthvm_get_vm
   use earthvm_regrid, only: earthvm_regrid_type
@@ -173,27 +173,41 @@ contains
     class(earthvm_model_type), intent(in out) :: target_model
     character(*), intent(in) :: target_field_name
     type(ESMF_Field) :: source_field, target_field
-    logical :: found
+    type(earthvm_regrid_type) :: regrid
+    logical :: grid_match, name_match
     integer :: n
-
-    ! search for the correct regrid instance
-    found = .false.
-    do n = 1, size(self % regrid)
-      !TODO Check not only the name but grid also;
-      if (self % regrid(n) % name == target_model % name) then
-        found = .true.
-        exit
-      end if         
-    end do
-
-    if (.not. found) then
-      ! regrid instance not found; create a new one and add it to the stack
-      self % regrid = [self % regrid, earthvm_regrid_type(target_model % name)]
-      n = size(self % regrid)
-    end if
 
     source_field = self % get_field(source_field_name)
     target_field = target_model % get_field(target_field_name)
+
+    grid_match = .false.
+    name_match = .false.
+    do n = 1, size(self % regrid)
+      ! First check if the target model name is
+      ! in the list of existing regrid instances
+      if (self % regrid(n) % name == target_model % name) then
+        name_match = .true.
+        ! Now check if the regrid instance with the matching name
+        ! also has a matching target grid
+        if (self % regrid(n) % destination_grid == get_grid(target_field)) then
+          grid_match = .true.
+        end if
+        exit
+      end if
+    end do
+
+    if (.not. grid_match) then
+      ! regrid instance not found; create a new one and add it to the stack
+      regrid = earthvm_regrid_type(target_model % name)
+      if (name_match) then
+        ! old target model, grid moved
+        self % regrid(n) = regrid
+      else
+        ! new target model
+        self % regrid = [self % regrid, regrid]
+        n = size(self % regrid)
+      end if
+    end if
 
     if (self % verbose) then
       if (earthvm_get_local_pet() == 0) then
