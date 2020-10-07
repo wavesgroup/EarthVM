@@ -54,6 +54,14 @@ contains
   end function get_num_wrf_domains
 
 
+  logical function nest_has_moved(dom, wrf_domain)
+    type(domain), pointer, intent(in) :: dom
+    type(earthvm_model_type), intent(in) :: wrf_domain
+    !TODO
+    nest_has_moved = .true.
+  end function nest_has_moved
+
+
   subroutine get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
     ! Thin wrapper around WRF's get_ijk_from_grid() subroutine.
     ! Given a WRF domain pointer, it returns the global and local start and end
@@ -274,6 +282,7 @@ contains
 
     type(earthvm_model_type) :: nest
     integer :: n
+    character(2) :: nest_number
 
     ! Flip the coupling switch in the WRF surface layer module to override
     ! WRF's calculation of the surface roughness length
@@ -295,13 +304,11 @@ contains
     end do
 
     ! Loop over active nests and if EarthVM model structure
-    ! for the nest has not been created yet, do so now
+    ! for the nest has not been created yet, create one now
     do n = 2, num_wrf_domains
       if (size(domains) < n) then
-        !TODO for fixed nests we need to create them only once
-        !TODO for moving nests we neet to re-create on every move
-        nest = new_wrf_domain(dom(n) % ptr, 'wrf_d02') !TODO generalize nest string
-        domains = [domains, nest]
+        write(nest_number, '(i2.2)') n
+        domains = [domains, new_wrf_domain(dom(n) % ptr, 'wrf_d' // nest_number)]
       end if
     end do
 
@@ -318,6 +325,15 @@ contains
     ! Run the model for one time step
     call wrf_run()
     
+    ! Test if any of the nests have moved, and if yes,
+    ! create a new data structure to track the new grid
+    do n = 2, num_wrf_domains
+      if (nest_has_moved(dom(n) % ptr, domains(n))) then
+        write(nest_number, '(i2.2)') n
+        domains(n) = new_wrf_domain(dom(n) % ptr, 'wrf_d' // nest_number)
+      end if
+    end do
+
     ! Export fields for coupling with other models
     do n = 1, num_wrf_domains
       call set_export_fields(dom(n) % ptr, domains(n))
