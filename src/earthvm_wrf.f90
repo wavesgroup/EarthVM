@@ -8,7 +8,7 @@ module earthvm_wrf
   use earthvm_assert, only: assert, assert_success
   use earthvm_datetime, only: datetime
   use earthvm_esmf, only: create_distgrid, create_grid, create_field, &
-                          get_field_values, set_field_values, &
+                          get_field_values, set_field_values, get_grid, &
                           get_current_time_from_clock, get_stop_time_from_clock
   use earthvm_events, only: earthvm_event_type
   use earthvm_io, only: write_grid_to_netcdf
@@ -54,11 +54,31 @@ contains
   end function get_num_wrf_domains
 
 
-  logical function nest_has_moved(dom, wrf_domain)
+  logical function nest_has_moved(dom, nest)
+    ! Compares the lat, lon fields between the WRF internal domain structure
+    ! and the one we have in EarthVM. If they're different, return .true. as the result.
     type(domain), pointer, intent(in) :: dom
-    type(earthvm_model_type), intent(in) :: wrf_domain
-    !TODO
-    nest_has_moved = .true.
+    type(earthvm_model_type), intent(in) :: nest
+    real(ESMF_KIND_R4), pointer :: lon_ptr(:,:), lat_ptr(:,:)
+    integer :: lb(2), ub(2)
+    integer :: ic, jc
+    integer :: rc
+
+    ! Get pointer to the longitude array and its bounds
+    call ESMF_GridGetCoord(nest % grid, 1, farrayPtr=lon_ptr, &
+                           exclusiveLBound=lb, exclusiveUBound=ub, rc=rc)
+    call assert_success(rc)
+
+    ! Get pointer to the latitude array and its bounds
+    call ESMF_GridGetCoord(nest % grid, 2, farrayPtr=lat_ptr, rc=rc)
+    call assert_success(rc)
+
+    ic = lb(1) + (ub(1) - lb(1)) / 2
+    jc = lb(2) + (ub(2) - lb(2)) / 2
+
+    nest_has_moved = dom % xlong(ic,jc) /= lon_ptr(ic,jc) &
+                .or. dom % xlat(ic,jc) /= lat_ptr(ic,jc)
+
   end function nest_has_moved
 
 
@@ -135,6 +155,7 @@ contains
                        lon=dom % xlong(ips:ipe, jps:jpe), &
                        lat=dom % xlat(ips:ipe, jps:jpe), &
                        mask=nint(dom % xland(ips:ipe, jps:jpe) - 1))
+    nest % grid = grid
 
     ! Output the grid so we can verify that everything looks good
     call write_grid_to_netcdf(grid, name // '_grid.nc')
@@ -331,6 +352,7 @@ contains
       if (nest_has_moved(dom(n) % ptr, domains(n))) then
         write(nest_number, '(i2.2)') n
         domains(n) = new_wrf_domain(dom(n) % ptr, 'wrf_d' // nest_number)
+      else
       end if
     end do
 
