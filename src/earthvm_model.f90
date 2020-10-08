@@ -24,6 +24,7 @@ module earthvm_model
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
     type(ESMF_Clock) :: clock
+    type(ESMF_Grid) :: grid
     type(earthvm_forcing_type), allocatable :: forcing(:)
     type(earthvm_regrid_type), allocatable :: regrid(:)
     logical :: nest = .false.
