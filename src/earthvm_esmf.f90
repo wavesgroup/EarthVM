@@ -20,6 +20,11 @@ module earthvm_esmf
   public :: get_itemlist_from_state
   public :: set_field_values
 
+  interface get_grid
+    module procedure :: get_grid_from_field
+    module procedure :: get_grid_from_gridded_component
+  end interface get_grid
+
 contains
 
   type(ESMF_DistGrid) function create_distgrid(pet_start_index, pet_end_index, &
@@ -33,7 +38,7 @@ contains
     local_pet = earthvm_get_local_pet()
     pet_count = earthvm_get_pet_count()
 
-    allocate(tile_dimensions(4, earthvm_get_pet_count()))
+    allocate(tile_dimensions(4,earthvm_get_pet_count()))
     tile_dimensions = 0
 
     call ESMF_VMGather(vm       = earthvm_get_vm(),               &
@@ -57,7 +62,7 @@ contains
 
     tile_dimensions = reshape(tile_dimensions_1d, shape(tile_dimensions))
 
-    allocate(de_block_list(2, 2, pet_count))
+    allocate(de_block_list(2,2,pet_count))
     do n = 1, pet_count
       de_block_list(:,1,n) = [tile_dimensions(1,n), tile_dimensions(3,n)]
       de_block_list(:,2,n) = [tile_dimensions(2,n), tile_dimensions(4,n)]
@@ -164,12 +169,20 @@ contains
   end function create_grid
 
 
-  type(ESMF_Grid) function get_grid(field) result(grid)
+  type(ESMF_Grid) function get_grid_from_field(field) result(grid)
     type(ESMF_Field), intent(in) :: field
     integer :: rc
     call ESMF_FieldGet(field, grid=grid, rc=rc)
     call assert_success(rc)
-  end function get_grid
+  end function get_grid_from_field
+
+
+  type(ESMF_Grid) function get_grid_from_gridded_component(gridcomp) result(grid)
+    type(ESMF_GridComp), intent(in) :: gridcomp
+    integer :: rc
+    call ESMF_GridCompGet(gridcomp, grid=grid, rc=rc)
+    call assert_success(rc)
+  end function get_grid_from_gridded_component
 
 
   function get_itemlist_from_state(state) result(itemlist)
