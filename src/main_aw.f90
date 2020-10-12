@@ -27,8 +27,8 @@ program main
   ! Wave coupling
   call waves % set_forcing('taux_atm', atmosphere, 'taux_wav')
   call waves % set_forcing('tauy_atm', atmosphere, 'tauy_wav')
-  call waves % set_forcing('u_stokes', atmosphere, 'u_stokes')
-  call waves % set_forcing('v_stokes', atmosphere, 'v_stokes')
+  call waves % set_forcing('u_stokes_sfc', atmosphere, 'u_stokes')
+  call waves % set_forcing('v_stokes_sfc', atmosphere, 'v_stokes')
 
   call atmosphere % initialize()
   call waves % initialize()
@@ -42,14 +42,14 @@ program main
     if (atmosphere % get_current_time() < time) then
       call atmosphere % run()
       call atmosphere % force(waves)
-      !call atmosphere % write_to_netcdf()
+      call atmosphere % write_to_netcdf()
     end if
 
     ! run waves for one time step
     if (waves % get_current_time() < time) then
       call waves % run()
       call waves % force(wrf_domains)
-      !call waves % write_to_netcdf()
+      call waves % write_to_netcdf()
     end if
 
     ! advance master clock

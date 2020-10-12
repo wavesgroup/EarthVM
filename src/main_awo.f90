@@ -33,12 +33,12 @@ program main
   ! Wave coupling
   call waves % set_forcing('taux_atm', atmosphere, 'taux_wav')
   call waves % set_forcing('tauy_atm', atmosphere, 'tauy_wav')
-  call waves % set_forcing('u_stokes', atmosphere, 'u_stokes')
-  call waves % set_forcing('v_stokes', atmosphere, 'v_stokes')
+  call waves % set_forcing('u_stokes_sfc', atmosphere, 'u_stokes')
+  call waves % set_forcing('v_stokes_sfc', atmosphere, 'v_stokes')
   call waves % set_forcing('taux_ocn', ocean, 'taux')
   call waves % set_forcing('tauy_ocn', ocean, 'tauy')
-  call waves % set_forcing('u_stokes', ocean, 'u_stokes')
-  call waves % set_forcing('v_stokes', ocean, 'v_stokes')
+  call waves % set_forcing('u_stokes_1m', ocean, 'u_stokes')
+  call waves % set_forcing('v_stokes_1m', ocean, 'v_stokes')
 
   ! Ocean coupling
   call ocean % set_forcing('sst', atmosphere, 'sst')

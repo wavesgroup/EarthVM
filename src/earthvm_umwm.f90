@@ -77,13 +77,15 @@ contains
     call assert_success(rc)
     
     ! create and add export fields to import state
-    fields = [                        &
-      create_field(grid, 'u_stokes'), &
-      create_field(grid, 'v_stokes'), &
-      create_field(grid, 'taux_atm'), &
-      create_field(grid, 'tauy_atm'), &
-      create_field(grid, 'taux_ocn'), &
-      create_field(grid, 'tauy_ocn')  &
+    fields = [                            &
+      create_field(grid, 'u_stokes_1m'),  &
+      create_field(grid, 'v_stokes_1m'),  &
+      create_field(grid, 'u_stokes_sfc'), &
+      create_field(grid, 'v_stokes_sfc'), &
+      create_field(grid, 'taux_atm'),     &
+      create_field(grid, 'tauy_atm'),     &
+      create_field(grid, 'taux_ocn'),     &
+      create_field(grid, 'tauy_ocn')      &
     ]
     call ESMF_StateAdd(export_state, fields, rc=rc)
     call assert_success(rc)
@@ -215,7 +217,7 @@ contains
       do concurrent(i = istart:iend)
         tmp_array(mi(i),ni(i)) = us(i,1)
       end do
-      call ESMF_StateGet(export_state, 'u_stokes', field)
+      call ESMF_StateGet(export_state, 'u_stokes_sfc', field)
       call set_field_values(field, tmp_array)
 
       ! v_stokes
@@ -223,7 +225,23 @@ contains
       do concurrent(i = istart:iend)
         tmp_array(mi(i),ni(i)) = vs(i,1)
       end do
-      call ESMF_StateGet(export_state, 'v_stokes', field)
+      call ESMF_StateGet(export_state, 'v_stokes_sfc', field)
+      call set_field_values(field, tmp_array)
+
+      ! u_stokes_1m
+      tmp_array = 0
+      do concurrent(i = istart:iend)
+        tmp_array(mi(i),ni(i)) = sum(us(i,1:10)) * 0.1 !TODO don't hardcode Stokes depths
+      end do
+      call ESMF_StateGet(export_state, 'u_stokes_1m', field)
+      call set_field_values(field, tmp_array)
+
+      ! v_stokes_1m
+      tmp_array = 0
+      do concurrent(i = istart:iend)
+        tmp_array(mi(i),ni(i)) = sum(vs(i,1:10)) * 0.1 !TODO don't hardcode Stokes depths
+      end do
+      call ESMF_StateGet(export_state, 'v_stokes_1m', field)
       call set_field_values(field, tmp_array)
 
     end block
