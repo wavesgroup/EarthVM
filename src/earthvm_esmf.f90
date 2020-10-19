@@ -79,19 +79,41 @@ contains
   end function create_distgrid
 
 
-  type(ESMF_Field) function create_field(grid, name, values) result(field)
+  type(ESMF_Field) function create_field(grid, name, values, halo_width) result(field)
     type(ESMF_Grid), intent(in) :: grid
     character(*), intent(in) :: name
     real(ESMF_KIND_R4), intent(in), optional :: values(:,:)
+    integer, intent(in), optional :: halo_width(2)
+    !type(ESMF_RouteHandle), intent(in out), optional :: halo_route_handle
+
+    type(ESMF_ArraySpec) :: arrayspec
+    integer :: hwidth(2)
     real(ESMF_KIND_R4), pointer :: field_data(:,:)
     integer :: rc
 
+    if (present(halo_width)) then
+      hwidth = halo_width
+    else
+      hwidth = [0, 0]
+    end if
+
+    call ESMF_ArraySpecSet(arrayspec, rank=2, typekind=ESMF_TYPEKIND_R4, rc=rc)
+    call assert_success(rc)
+
     ! TODO allow optional halo region using totalLWidth and totalUWidth arguments
-    field = ESMF_FieldCreate(grid, ESMF_TYPEKIND_R4, name=name, &
-                             indexFlag=ESMF_INDEX_GLOBAL, rc=rc)
+    !field = ESMF_FieldCreate(grid, ESMF_TYPEKIND_R4, name=name, &
+    field = ESMF_FieldCreate(grid, arrayspec, name=name,  &
+                             indexFlag=ESMF_INDEX_GLOBAL, &
+                             totalLWidth=hwidth, totalUWidth=hwidth, rc=rc)
     call assert_success(rc)
 
     ! TODO Optionally call ESMF_FieldHaloStore
+    !if (present(halo_route_handle)) then
+    !  call ESMF_FieldHaloStore(field, halo_route_handle,               &
+    !                           startregion=ESMF_STARTREGION_EXCLUSIVE, &
+    !                           rc=rc)
+    !  call assert_success(rc)
+    !end if
 
     call ESMF_FieldGet(field, localDE=0, farrayPtr=field_data, rc=rc)
     call assert_success(rc)
