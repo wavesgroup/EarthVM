@@ -4,7 +4,7 @@ OMPI_FC=xlf2008
 FC = mpif90
 FFLAGS = -O3 -qstrict # optimized
 #FFLAGS = -O0 -g9 -qtbtable=full -qcheck=all # debug
-HYCOM_ARCH=xl-smpi-sm-relo
+HYCOM_ARCH=power9-xl-smpi-relo
 
 ESMF_LINK_FLAGS = $(ESMF_F90LINKPATHS) \
                   $(ESMF_F90ESMFLINKLIBS) \
