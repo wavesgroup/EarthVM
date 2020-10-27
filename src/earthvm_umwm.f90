@@ -15,6 +15,8 @@ module earthvm_umwm
   private
   public :: set_services
 
+  type(ESMF_RouteHandle) :: halo_route_handle
+
 contains
 
   subroutine set_services(gridded_component, rc)
@@ -73,6 +75,11 @@ contains
               create_field(grid, 'v'),    &
               create_field(grid, 'rhow')  &
               ]
+
+    ! Compute and store the route handle for halo points;
+    ! This can be done with any input field so we'll just use the first one.
+    call ESMF_FieldHaloStore(fields(1), halo_route_handle)
+
     call ESMF_StateAdd(import_state, fields, rc=rc)
     call assert_success(rc)
     
@@ -96,13 +103,10 @@ contains
 
   subroutine model_run(gridded_component, import_state, export_state, clock, rc)
 
-    use umwm_module, only: istart, iend, mm, nm, mi, ni, &
-                           rhoa, rhow, rhorat,           &
-                           wspd, wdir,                   &
-                           taux_form, tauy_form,         &
-                           taux_skin, tauy_skin,         &
-                           taux_ocntop, tauy_ocntop,     &
-                           taux_snl, tauy_snl,           &
+    use umwm_module, only: istart, iend, iistart, iiend, mm, nm, mi, ni, &
+                           rhoa, rhow, rhorat, wspd, wdir,               &
+                           taux_form, tauy_form, taux_skin, tauy_skin,   &
+                           taux_ocntop, tauy_ocntop, taux_snl, tauy_snl, &
                            uc, vc
     use umwm_stokes, only: us, vs
 
@@ -147,15 +151,19 @@ contains
       wdir(i) = field_values(mi(i),ni(i))
     end do
 
+    ! For currents, we need to update halo points as well
+    ! because they're needed for wave propagation across tile edges.
     call ESMF_StateGet(import_state, 'u', field)
+    call ESMF_FieldHalo(field, halo_route_handle)
     call get_field_values(field, field_values, lb, ub)
-    do concurrent(i = istart:iend)
+    do concurrent(i = iistart:iiend)
       uc(i) = field_values(mi(i),ni(i))
     end do
 
     call ESMF_StateGet(import_state, 'v', field)
+    call ESMF_FieldHalo(field, halo_route_handle)
     call get_field_values(field, field_values, lb, ub)
-    do concurrent(i = istart:iend)
+    do concurrent(i = iistart:iiend)
       vc(i) = field_values(mi(i),ni(i))
     end do
 
