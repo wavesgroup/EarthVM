@@ -83,15 +83,18 @@ contains
     type(ESMF_Grid), intent(in) :: grid
     character(*), intent(in) :: name
     real(ESMF_KIND_R4), intent(in), optional :: values(:,:)
+
+    type(ESMF_ArraySpec) :: arrayspec
     real(ESMF_KIND_R4), pointer :: field_data(:,:)
     integer :: rc
 
-    ! TODO allow optional halo region using totalLWidth and totalUWidth arguments
-    field = ESMF_FieldCreate(grid, ESMF_TYPEKIND_R4, name=name, &
-                             indexFlag=ESMF_INDEX_GLOBAL, rc=rc)
+    call ESMF_ArraySpecSet(arrayspec, rank=2, typekind=ESMF_TYPEKIND_R4, rc=rc)
     call assert_success(rc)
 
-    ! TODO Optionally call ESMF_FieldHaloStore
+    field = ESMF_FieldCreate(grid, arrayspec, name=name,  &
+                             indexFlag=ESMF_INDEX_GLOBAL, &
+                             totalLWidth=[1, 1], totalUWidth=[1, 1], rc=rc)
+    call assert_success(rc)
 
     call ESMF_FieldGet(field, localDE=0, farrayPtr=field_data, rc=rc)
     call assert_success(rc)
