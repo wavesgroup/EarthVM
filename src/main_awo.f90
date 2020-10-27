@@ -54,7 +54,7 @@ program main
 
   call atmosphere % force(ocean)
   call atmosphere % force(waves)
-  call ocean % force(atmosphere)
+  call ocean % force(wrf_domains)
   call ocean % force(waves)
      
   time = start_time
@@ -65,7 +65,7 @@ program main
       call atmosphere % run()
       call atmosphere % force(ocean)
       call atmosphere % force(waves)
-      call atmosphere % write_to_netcdf()
+      !call atmosphere % write_to_netcdf()
     end if
 
     ! run waves for one time step
@@ -73,7 +73,7 @@ program main
       call waves % run()
       call waves % force(wrf_domains)
       call waves % force(ocean)
-      call waves % write_to_netcdf()
+      !call waves % write_to_netcdf()
     end if
 
     ! run ocean for one time step
@@ -81,7 +81,7 @@ program main
       call ocean % run()
       call ocean % force(wrf_domains)
       call ocean % force(waves)
-      call ocean % write_to_netcdf()
+      !call ocean % write_to_netcdf()
     end if
 
     ! advance master clock
