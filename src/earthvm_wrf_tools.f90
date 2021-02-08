@@ -9,6 +9,8 @@ module earthvm_wrf_tools
 contains
 
   type(datetime) function get_start_time() result(res)
+    !TODO Unfortunately reading only some variables from a namelist doesn't work
+    !TODO This needs to be parsed by hand
     integer :: start_year, start_month, start_day
     integer :: start_hour, start_minute, start_second
     integer :: u
@@ -22,6 +24,8 @@ contains
   end function get_start_time
 
   type(datetime) function get_end_time() result(res)
+    !TODO Unfortunately reading only some variables from a namelist doesn't work
+    !TODO This needs to be parsed by hand
     integer :: end_year, end_month, end_day
     integer :: end_hour, end_minute, end_second
     integer :: u
