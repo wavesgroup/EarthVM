@@ -16,7 +16,8 @@ OBJS = earthvm_assert.o \
        earthvm_state.o \
        earthvm_str.o \
        earthvm_umwm.o \
-       earthvm_wrf.o
+       earthvm_wrf.o \
+       earthvm_wrf_tools.o
 
 PROGS = main_awo main_ao main_aw main_ua
 
@@ -53,9 +54,10 @@ earthvm_hycom.o: earthvm_assert.o earthvm_events.o earthvm_state.o earthvm_io.o
 earthvm_io.o: earthvm_assert.o earthvm_state.o
 earthvm_model.o: earthvm_assert.o earthvm_datetime.o earthvm_esmf.o \
                  earthvm_events.o earthvm_io.o earthvm_regrid.o \
-                 earthvm_state.o earthvm_str.o
+                 earthvm_state.o earthvm_str.o earthvm_wrf_tools.o
 earthvm_nesting.o: earthvm_model.o
 earthvm_regrid.o: earthvm_assert.o
 earthvm_state.o: earthvm_assert.o
 earthvm_umwm.o: earthvm_assert.o earthvm_events.o earthvm_state.o earthvm_io.o
 earthvm_wrf.o: earthvm_assert.o earthvm_esmf.o earthvm_events.o earthvm_io.o earthvm_model.o earthvm_state.o
+earthvm_wrf_tools.o: earthvm_datetime.o
