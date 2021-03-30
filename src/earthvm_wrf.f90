@@ -36,6 +36,7 @@ module earthvm_wrf
 
   type(domain_ptr_type) :: dom(MAX_WRF_DOMAINS)
   integer :: num_wrf_domains = 0
+  integer :: time_step_count = 0
 
   type(earthvm_model_type), allocatable :: domains(:)
 
@@ -305,11 +306,13 @@ contains
     integer :: n
     character(2) :: nest_number
 
+    ! Increment the time step count, needed to determine whether we are ready
+    ! to update roughness length in WRF
+    time_step_count = time_step_count + 1
+
     ! Flip the coupling switch in the WRF surface layer module to override
     ! WRF's calculation of the surface roughness length
-    ! TODO set dynamically from configuration
-    earthvm_momentum_coupling = .false.
-    !earthvm_momentum_coupling = .true.
+    if (time_step_count > 1) earthvm_momentum_coupling = .true.
 
     ! Associate the first domain with the WRF parent domain
     dom(1) % ptr => head_grid
@@ -336,8 +339,9 @@ contains
     ! Update internal WRF arrays with the values from the EarthVM import fields
     do n = 1, num_wrf_domains
       call set_import_fields(dom(n) % ptr, domains(n))
-      !TODO currently this causes the wrf_run() to segfault
-      !call set_roughness_length(dom(n) % ptr, domains(n))
+      if (earthvm_momentum_coupling) then
+        call set_roughness_length(dom(n) % ptr, domains(n))
+      end if
     end do
 
     ! Sychronize WRF's internal clock with the EarthVM clock
@@ -345,7 +349,7 @@ contains
 
     ! Run the model for one time step
     call wrf_run()
-    
+
     ! Test if any of the nests have moved, and if yes,
     ! create a new data structure to track the new grid
     do n = 2, num_wrf_domains
