@@ -396,51 +396,65 @@ contains
     ! Sea surface temperature
     call ESMF_StateGet(wrf_domain % import_state, 'sst', field)
     call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
-      dom % tsk(i,j) = field_values(i,j) + 273.15
-    end do
+    if (any(field_values /= 0)) then
+      do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+        dom % tsk(i,j) = field_values(i,j) + 273.15
+      end do
+    end if
 
     ! Zonal surface current
     call ESMF_StateGet(wrf_domain % import_state, 'u_current', field)
     call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
-      dom % earthvm_u_current(i,j) = field_values(i,j)
-    end do
+    if (any(field_values /= 0)) then
+      do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+        dom % earthvm_u_current(i,j) = field_values(i,j)
+      end do
+    end if
 
     ! Meridional surface current
     call ESMF_StateGet(wrf_domain % import_state, 'v_current', field)
     call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
-      dom % earthvm_v_current(i,j) = field_values(i,j)
-    end do
+    if (any(field_values /= 0)) then
+      do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+        dom % earthvm_v_current(i,j) = field_values(i,j)
+      end do
+    end if
 
     ! Zonal component of the wave-dependent stress vector
     call ESMF_StateGet(wrf_domain % import_state, 'taux_wav', field)
     call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
-      dom % earthvm_taux(i,j) = field_values(i,j)
-    end do
+    if (any(field_values /= 0)) then
+      do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+        dom % earthvm_taux(i,j) = field_values(i,j)
+      end do
+    end if
 
     ! Meridional component of the wave-dependent stress vector
     call ESMF_StateGet(wrf_domain % import_state, 'tauy_wav', field)
     call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
-      dom % earthvm_tauy(i,j) = field_values(i,j)
-    end do
+    if (any(field_values /= 0)) then
+      do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+        dom % earthvm_tauy(i,j) = field_values(i,j)
+      end do
+    end if
 
     ! Zonal Stokes drift
     call ESMF_StateGet(wrf_domain % import_state, 'u_stokes', field)
     call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
-      dom % earthvm_u_stokes(i,j) = field_values(i,j)
-    end do
+    if (any(field_values /= 0)) then
+      do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+        dom % earthvm_u_stokes(i,j) = field_values(i,j)
+      end do
+    end if
 
     ! Meridional Stokes drift
     call ESMF_StateGet(wrf_domain % import_state, 'v_stokes', field)
     call get_field_values(field, field_values, lb, ub)
-    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
-      dom % earthvm_v_stokes(i,j) = field_values(i,j)
-    end do
+    if (any(field_values /= 0)) then
+      do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+        dom % earthvm_v_stokes(i,j) = field_values(i,j)
+      end do
+    end if
 
   end subroutine set_import_fields
 
@@ -606,7 +620,8 @@ contains
       psix10 = wspd10 * dom % fm(i,j) / dom % wspd(i,j)
       psim10 = log(10 / dom % znt(i,j)) - psix10
       ust = sqrt(sqrt(taux(i,j)**2 + tauy(i,j)**2) * dom % alt(i,1,j))
-      dom % znt(i,j) = 10 * exp(- VON_KARMAN * wspd10 / ust)! - psim10)
+      dom % znt(i,j) = 10 * exp(- VON_KARMAN * wspd10 / ust - psim10)
+      dom % znt(i,j) = min(max(dom % znt(i,j), 1e-5), 1e1)
     end do
 
   end subroutine set_roughness_length
