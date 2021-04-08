@@ -340,6 +340,7 @@ contains
     do n = 1, num_wrf_domains
       call set_import_fields(dom(n) % ptr, domains(n))
       if (earthvm_momentum_coupling) then
+        call set_friction_velocity(dom(n) % ptr, domains(n))
         call set_roughness_length(dom(n) % ptr, domains(n))
       end if
     end do
@@ -549,6 +550,34 @@ contains
   end subroutine set_export_fields
 
 
+  subroutine set_friction_velocity(dom, wrf_domain)
+    ! Updates the friction velocity u* in a WRF domain instance based on the
+    ! vector stress imported from the wave model and set as ESMF fields on
+    ! wrf_domain.
+    type(domain), pointer, intent(in) :: dom
+    type(earthvm_model_type), intent(in) :: wrf_domain
+    type(ESMF_Field) :: field
+    integer :: lb(2), ub(2)
+    integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
+    integer :: i, j
+    real, pointer :: taux(:,:), tauy(:,:)
+
+    ! Get the WRF start and end bounds in x and y dimensions
+    call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
+
+    call ESMF_StateGet(wrf_domain % import_state, 'taux_wav', field)
+    call get_field_values(field, taux, lb, ub)
+
+    call ESMF_StateGet(wrf_domain % import_state, 'tauy_wav', field)
+    call get_field_values(field, tauy, lb, ub)
+
+    do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
+      dom % ust(i,j) = sqrt(sqrt(taux(i,j)**2 + tauy(i,j)**2) * dom % alt(i,1,j))
+    end do
+
+  end subroutine set_friction_velocity
+
+
   subroutine set_roughness_length(dom, wrf_domain)
     ! Updates the roughness length z0 in a WRF domain instance based on the
     ! vector stress imported from the wave model and set as ESMF fields on
@@ -561,7 +590,7 @@ contains
     integer :: i, j
     real :: psim10, psix10, wspd10, ust
     real, pointer :: taux(:,:), tauy(:,:)
-    real, parameter :: von_karman_constant = 0.4
+    real, parameter :: VON_KARMAN = 0.4
 
     ! Get the WRF start and end bounds in x and y dimensions
     call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
@@ -571,16 +600,15 @@ contains
 
     call ESMF_StateGet(wrf_domain % import_state, 'tauy_wav', field)
     call get_field_values(field, tauy, lb, ub)
-
+    
     do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
       wspd10 = sqrt(dom % u10(i,j)**2 + dom % v10(i,j)**2)
       psix10 = wspd10 * dom % fm(i,j) / dom % wspd(i,j)
       psim10 = log(10 / dom % znt(i,j)) - psix10
       ust = sqrt(sqrt(taux(i,j)**2 + tauy(i,j)**2) * dom % alt(i,1,j))
-      dom % znt(i,j) = 10 * exp(- von_karman_constant * wspd10 / ust - psim10)
-      dom % znt(i,j) = max(dom % znt(i,j), 1e-5)
+      dom % znt(i,j) = 10 * exp(- VON_KARMAN * wspd10 / ust)! - psim10)
     end do
-    
+
   end subroutine set_roughness_length
 
 
