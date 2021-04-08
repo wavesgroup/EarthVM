@@ -551,7 +551,7 @@ CONTAINS
 !CCCCC                                                                           
 
       DO 320 I=its,ite
-!                                                                           
+
       if (br(I).gt.0) then
         if (br(I).gt.250.0) then
         zol(I)=zolri(250.0,ZA(I),ZNT(I))
@@ -930,7 +930,14 @@ CONTAINS
            ENDIF
         ENDIF
 ! TO PREVENT OSCILLATIONS AVERAGE WITH OLD VALUE 
-        UST(I)=0.5*UST(I)+0.5*KARMAN*WSPD(I)/PSIX                                             
+        IF (earthvm_momentum_coupling) THEN
+          IF (XLAND(I) < 1.5) THEN
+            UST(I)=0.5*UST(I)+0.5*KARMAN*WSPD(I)/PSIX
+          ENDIF
+        ELSE
+          UST(I)=0.5*UST(I)+0.5*KARMAN*WSPD(I)/PSIX
+        ENDIF
+
 ! TKE coupling: compute ust without vconv for use in tke scheme
         WSPDI(I)=SQRT(UX(I)*UX(I)+VX(I)*VX(I))
         IF ( PRESENT(USTM) ) THEN
@@ -971,16 +978,18 @@ CONTAINS
 !-----OVER WATER, ALTER ROUGHNESS LENGTH (ZNT) ACCORDING TO WIND (UST).          
                                                                                  
       DO 360 I=its,ite
-        IF((XLAND(I)-1.5).GE.0 .AND. .NOT. earthvm_momentum_coupling)THEN
-!         ZNT(I)=CZO*UST(I)*UST(I)/G+OZO                                   
+        IF((XLAND(I)-1.5).GE.0)THEN
+          IF (.NOT. earthvm_momentum_coupling) THEN
+!           ZNT(I)=CZO*UST(I)*UST(I)/G+OZO
 ! Since V3.7 (ref: EC Physics document for Cy36r1)
-          ZNT(I)=CZO*UST(I)*UST(I)/G+0.11*1.5E-5/UST(I)
+            ZNT(I)=CZO*UST(I)*UST(I)/G+0.11*1.5E-5/UST(I)
 ! V3.9: Add limit as in isftcflx = 1,2
-          ZNT(I)=MIN(ZNT(I),2.85e-3)
+            ZNT(I)=MIN(ZNT(I),2.85e-3)
 ! COARE 3.5 (Edson et al. 2013)
-!         CZC = 0.0017*WSPD(I)-0.005
-!         CZC = min(CZC,0.028)
-!         ZNT(I)=CZC*UST(I)*UST(I)/G+0.11*1.5E-5/UST(I)
+!           CZC = 0.0017*WSPD(I)-0.005
+!           CZC = min(CZC,0.028)
+!           ZNT(I)=CZC*UST(I)*UST(I)/G+0.11*1.5E-5/UST(I)
+          ENDIF
 ! AHW: change roughness length, and hence the drag coefficients Ck and Cd
           IF ( PRESENT(ISFTCFLX) ) THEN
              IF ( ISFTCFLX.NE.0 ) THEN
@@ -1108,37 +1117,40 @@ CONTAINS
 
    END SUBROUTINE sfclayrevinit
 
-      function zolri(ri,z,z0)
-!
-      if (ri.lt.0.)then
-        x1=-5.
-        x2=0.
-      else
-        x1=0.
-        x2=5.
-      endif
-!
-      fx1=zolri2(x1,ri,z,z0)
-      fx2=zolri2(x2,ri,z,z0)
-      Do While (abs(x1 - x2) > 0.01)
-! check added for potential divide by zero (2019/11)
-      if(fx1.eq.fx2)return
-      if(abs(fx2).lt.abs(fx1))then
-        x1=x1-fx1/(fx2-fx1)*(x2-x1)
-        fx1=zolri2(x1,ri,z,z0)
-        zolri=x1
-      else
-        x2=x2-fx2/(fx2-fx1)*(x2-x1)
-        fx2=zolri2(x2,ri,z,z0)
-        zolri=x2
-      endif
-!
-      enddo
-!
+   function zolri(ri, z, z0)
+     implicit none
+     real, intent(in) :: ri, z, z0
+     real :: x1, x2, fx1, fx2
 
-      return
-      end function
+     if (ri < 0) then
+       x1 = -5
+       x2 = 0
+     else
+       x1 = 0
+       x2 = 5
+     endif
 
+     fx1 = zolri2(x1, ri, z, z0)
+     fx2 = zolri2(x2, ri, z, z0)
+      
+     do while (abs(x1 - x2) > 0.01)
+
+       ! check added for potential divide by zero (2019/11)
+       if (fx1 == fx2) return
+      
+       if (abs(fx2) < abs(fx1)) then
+         x1 = x1 - fx1 / (fx2 - fx1) * (x2 - x1)
+         fx1 = zolri2(x1, ri, z, z0)
+         zolri = x1
+       else
+         x2 = x2 - fx2 / (fx2 - fx1) * (x2 - x1)
+         fx2 = zolri2(x2, ri, z, z0)
+         zolri = x2
+       end if
+
+     end do
+
+   end function
 !
 ! -----------------------------------------------------------------------
 !
