@@ -1118,9 +1118,6 @@ CONTAINS
    END SUBROUTINE sfclayrevinit
 
    function zolri(ri, z, z0)
-     implicit none
-     real, intent(in) :: ri, z, z0
-     real :: x1, x2, fx1, fx2
 
      if (ri < 0) then
        x1 = -5
