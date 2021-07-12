@@ -4,20 +4,18 @@
 LIB = libearthvm.a
 
 OBJS = earthvm_assert.o \
+       earthvm_constants.o \
        earthvm_coupling.o \
        earthvm_datetime.o \
        earthvm_esmf.o \
-       earthvm_events.o \
        earthvm_hycom.o \
        earthvm_io.o \
        earthvm_model.o \
        earthvm_nesting.o \
        earthvm_regrid.o \
        earthvm_state.o \
-       earthvm_str.o \
        earthvm_umwm.o \
-       earthvm_wrf.o \
-       earthvm_wrf_tools.o
+       earthvm_wrf.o
 
 PROGS = main_awo main_ao main_aw main_ua
 
@@ -48,16 +46,13 @@ main_ua: main_ua.f90 $(OBJS)
 clean:
 	$(RM) $(PROGS) *.a *.o *.mod PET*
 
-earthvm_esmf.o: earthvm_assert.o earthvm_state.o
-earthvm_events.o: earthvm_str.o
-earthvm_hycom.o: earthvm_assert.o earthvm_events.o earthvm_state.o earthvm_io.o
+earthvm_esmf.o: earthvm_assert.o earthvm_constants.o earthvm_state.o
+earthvm_hycom.o: earthvm_assert.o earthvm_io.o earthvm_state.o
 earthvm_io.o: earthvm_assert.o earthvm_state.o
 earthvm_model.o: earthvm_assert.o earthvm_datetime.o earthvm_esmf.o \
-                 earthvm_events.o earthvm_io.o earthvm_regrid.o \
-                 earthvm_state.o earthvm_str.o earthvm_wrf_tools.o
+                 earthvm_io.o earthvm_regrid.o earthvm_state.o
 earthvm_nesting.o: earthvm_model.o
 earthvm_regrid.o: earthvm_assert.o
 earthvm_state.o: earthvm_assert.o
-earthvm_umwm.o: earthvm_assert.o earthvm_events.o earthvm_state.o earthvm_io.o
-earthvm_wrf.o: earthvm_assert.o earthvm_esmf.o earthvm_events.o earthvm_io.o earthvm_model.o earthvm_state.o
-earthvm_wrf_tools.o: earthvm_datetime.o
+earthvm_umwm.o: earthvm_assert.o earthvm_io.o earthvm_state.o
+earthvm_wrf.o: earthvm_assert.o earthvm_esmf.o earthvm_io.o earthvm_model.o earthvm_state.o

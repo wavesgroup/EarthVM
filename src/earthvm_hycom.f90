@@ -4,7 +4,6 @@ module earthvm_hycom
   use earthvm_assert, only: assert_success
   use earthvm_esmf, only: create_distgrid, create_grid, create_field, &
                           get_field_values, set_field_values
-  use earthvm_events
   use earthvm_io, only: write_grid_to_netcdf
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_mpicomm
 

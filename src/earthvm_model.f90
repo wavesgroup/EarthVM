@@ -7,7 +7,6 @@ module earthvm_model
   use earthvm_io, only: write_fields_to_netcdf
   use earthvm_state, only: earthvm_get_local_pet, earthvm_get_pet_count, earthvm_get_vm
   use earthvm_regrid, only: earthvm_regrid_type
-  use earthvm_wrf_tools, only: get_start_time, get_end_time
 
   implicit none
 

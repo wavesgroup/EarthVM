@@ -8,9 +8,8 @@ module earthvm_wrf
   use earthvm_assert, only: assert, assert_success
   use earthvm_datetime, only: datetime
   use earthvm_esmf, only: create_distgrid, create_grid, create_field, &
-                          get_field_values, set_field_values, get_grid, &
+                          grid_rotation, get_field_values, set_field_values, get_grid, &
                           get_current_time_from_clock, get_stop_time_from_clock
-  use earthvm_events, only: earthvm_event_type
   use earthvm_io, only: write_grid_to_netcdf
   use earthvm_model, only: earthvm_model_type
   use earthvm_state, only: earthvm_get_mpicomm, earthvm_get_local_pet
@@ -140,6 +139,7 @@ contains
     type(ESMF_Field), allocatable :: fields(:)
     integer :: rc
     integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
+    real, allocatable :: alpha(:,:)
 
     ! Create the new model instance.
     ! Arguments 2-4 are not used but must be provided.
@@ -157,6 +157,9 @@ contains
                        lat=dom % xlat(ips:ipe, jps:jpe), &
                        mask=nint(dom % xland(ips:ipe, jps:jpe) - 1))
     nest % grid = grid
+
+    alpha = grid_rotation(dom % xlong(ips:ipe, jps:jpe), &
+                          dom % xlat(ips:ipe, jps:jpe))
 
     ! Output the grid so we can verify that everything looks good
     call write_grid_to_netcdf(grid, name // '_grid.nc')
