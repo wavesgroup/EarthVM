@@ -1,10 +1,7 @@
-# EarthVM Makefile for XL compiler on Power9
+# EarthVM top-level Makefile
 
-OMPI_FC=xlf2008
-FC = mpif90
-FFLAGS = -O3 -qstrict # optimized
-#FFLAGS = -O0 -g9 -qtbtable=full -qcheck=all # debug
-HYCOM_ARCH=power9-xl-smpi-relo
+#include platform/xl.gnu
+include platform/xl.mk
 
 ESMF_LINK_FLAGS = $(ESMF_F90LINKPATHS) \
                   $(ESMF_F90ESMFLINKLIBS) \
@@ -18,26 +15,26 @@ CPPFLAGS = -I$(ESMF_INCLUDE) \
            -I$(WRF)/main \
            -I$(WRF)/phys \
            -I$(WRF)/share \
-	   -I$(UMWM) \
-	   -I$(HYCOM) \
-	   -I$(NETCDF)/include
+           -I$(UMWM) \
+           -I$(HYCOM) \
+           -I$(NETCDF)/include
 
 LDFLAGS = -L$(WRF)/external/esmf_time_f90 -lesmf_time \
-	  -L$(WRF)/external/io_netcdf -lwrfio_nf \
-	  -L$(UMWM) -lumwm \
-	  -L$(HYCOM) -lhycom \
+          -L$(WRF)/external/io_netcdf -lwrfio_nf \
+          -L$(UMWM) -lumwm \
+          -L$(HYCOM) -lhycom \
           -L$(ESMF_LIB) -lesmf \
           -L$(NETCDF)/lib -lnetcdff
 
 WRF_OBJS = $(WRF)/main/module_wrf_top.o \
-	   $(WRF)/frame/module_internal_header_util.o \
-	   $(WRF)/frame/pack_utils.o \
-	   $(WRF)/main/libwrflib.a \
-	   $(WRF)/external/fftpack/fftpack5/libfftpack.a \
-	   $(WRF)/external/io_grib1/libio_grib1.a \
-	   $(WRF)/external/io_grib_share/libio_grib_share.a \
-	   $(WRF)/external/io_int/libwrfio_int.a \
-	   $(WRF)/external/RSL_LITE/librsl_lite.a
+           $(WRF)/frame/module_internal_header_util.o \
+           $(WRF)/frame/pack_utils.o \
+           $(WRF)/main/libwrflib.a \
+           $(WRF)/external/fftpack/fftpack5/libfftpack.a \
+           $(WRF)/external/io_grib1/libio_grib1.a \
+           $(WRF)/external/io_grib_share/libio_grib_share.a \
+           $(WRF)/external/io_int/libwrfio_int.a \
+           $(WRF)/external/RSL_LITE/librsl_lite.a
 
 export FC OMPI_FC FFLAGS CPPFLAGS LDFLAGS WRF_OBJS
 
@@ -76,4 +73,4 @@ hycom:
 	ar rcs $(HYCOM)/libhycom.a $(HYCOM)/*.o
 
 umwm:
-	CPPFLAGS="-DMPI -DESMF" FCFLAGS="-O3 -qstrict" $(MAKE) umwm --directory=umwm
+	CPPFLAGS="-DMPI -DESMF" FCFLAGS="$(FFLAGS)" $(MAKE) umwm --directory=umwm
