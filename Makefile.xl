@@ -46,6 +46,7 @@ export FC OMPI_FC FFLAGS CPPFLAGS LDFLAGS WRF_OBJS
 all: hycom umwm
 	$(MAKE) --directory=src
 	$(MAKE) --directory=tests
+	$(MAKE) --directory=app
 
 test:
 	$(MAKE) test --directory=tests
@@ -53,6 +54,7 @@ test:
 clean:
 	$(MAKE) clean --directory=src
 	$(MAKE) clean --directory=tests
+	$(MAKE) clean --directory=app
 
 clean_hycom:
 	$(RM) hycom-2.3.01/hycom

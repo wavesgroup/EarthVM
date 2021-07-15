@@ -13,19 +13,19 @@ ESMF_LINK_FLAGS = $(ESMF_F90LINKPATHS) \
                   $(ESMF_TRACE_STATICLINKOPTS)
 
 CPPFLAGS = -I$(ESMF_INCLUDE) \
-	       -I$(WRF)/external/esmf_time_f90 \
+	   -I$(WRF)/external/esmf_time_f90 \
            -I$(WRF)/frame \
            -I$(WRF)/main \
            -I$(WRF)/phys \
            -I$(WRF)/share \
-	       -I$(UMWM) \
-	       -I$(HYCOM) \
-	       -I$(NETCDF)/include
+	   -I$(UMWM) \
+	   -I$(HYCOM) \
+	   -I$(NETCDF)/include
 
 LDFLAGS = -L$(WRF)/external/esmf_time_f90 -lesmf_time \
-	      -L$(WRF)/external/io_netcdf -lwrfio_nf \
-	      -L$(UMWM) -lumwm \
-	      -L$(HYCOM) -lhycom \
+	  -L$(WRF)/external/io_netcdf -lwrfio_nf \
+	  -L$(UMWM) -lumwm \
+	  -L$(HYCOM) -lhycom \
           -L$(ESMF_LIB) -lesmf \
           -L$(NETCDF)/lib -lnetcdff
 
@@ -46,6 +46,7 @@ export FC OMPI_FC FFLAGS CPPFLAGS LDFLAGS WRF_OBJS
 all: hycom umwm
 	$(MAKE) --directory=src
 	$(MAKE) --directory=tests
+	$(MAKE) --directory=app
 
 test:
 	$(MAKE) test --directory=tests
@@ -53,6 +54,7 @@ test:
 clean:
 	$(MAKE) clean --directory=src
 	$(MAKE) clean --directory=tests
+	$(MAKE) clean --directory=app
 
 clean_hycom:
 	$(RM) hycom-2.3.01/hycom
