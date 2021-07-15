@@ -492,10 +492,7 @@ contains
     call set_field_values(field, 1 / dom % alt(ips:ipe,1,jps:jpe))
 
     block
-      real :: wspd(ips:ipe,jps:jpe)
-      real :: wdir(ips:ipe,jps:jpe)
-      real :: taux(ips:ipe,jps:jpe)
-      real :: tauy(ips:ipe,jps:jpe)
+      real, dimension(ips:ipe,jps:jpe) :: wspd, wdir, taux, tauy
 
       wspd = sqrt(dom % u10(ips:ipe,jps:jpe)**2 &
                 + dom % v10(ips:ipe,jps:jpe)**2)
