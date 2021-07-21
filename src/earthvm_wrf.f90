@@ -6,6 +6,7 @@ module earthvm_wrf
 
   ! EarthVM module imports
   use earthvm_assert, only: assert, assert_success
+  use earthvm_constants, only: VON_KARMAN
   use earthvm_datetime, only: datetime
   use earthvm_esmf, only: create_distgrid, create_grid, create_field, &
                           grid_rotation, get_field_values, set_field_values, get_grid, &
@@ -604,7 +605,6 @@ contains
     integer :: i, j
     real :: psim10, psix10, wspd10, ust
     real, pointer :: taux(:,:), tauy(:,:)
-    real, parameter :: VON_KARMAN = 0.4
 
     ! Get the WRF start and end bounds in x and y dimensions
     call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
@@ -620,7 +620,7 @@ contains
       psix10 = wspd10 * dom % fm(i,j) / dom % wspd(i,j)
       psim10 = log(10 / dom % znt(i,j)) - psix10
       ust = sqrt(sqrt(taux(i,j)**2 + tauy(i,j)**2) * dom % alt(i,1,j))
-      dom % znt(i,j) = 10 * exp(- VON_KARMAN * wspd10 / ust - psim10)
+      dom % znt(i,j) = 10 * exp(- real(VON_KARMAN) * wspd10 / ust - psim10)
       dom % znt(i,j) = min(max(dom % znt(i,j), 1e-5), 1e1)
     end do
 
