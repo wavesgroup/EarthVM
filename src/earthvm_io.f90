@@ -2,9 +2,10 @@ module earthvm_io
   use iso_fortran_env, only: stderr => error_unit
   use ESMF
   use netcdf
+  use earthvm_assert, only: assert_success
+  use earthvm_esmf, only: grid_rotation
   use earthvm_state, only: earthvm_finalize, earthvm_get_vm, &
                            earthvm_get_local_pet, earthvm_get_pet_count
-  use earthvm_assert, only: assert_success
   implicit none
   private
   public :: write_grid_to_netcdf, write_fields_to_netcdf
@@ -14,6 +15,7 @@ contains
     type(ESMF_Grid), intent(in) :: grid
     character(*), intent(in) :: filename
     real, pointer :: lon_ptr(:,:), lat_ptr(:,:)
+    real, allocatable :: alpha(:,:)
     integer, pointer :: mask_ptr(:,:)
     integer :: ncid, xdimid, ydimid, varid
     integer :: x_size, y_size
@@ -42,6 +44,9 @@ contains
     x_size = ub_global(1) - lb_global(1) + 1
     y_size = ub_global(2) - lb_global(2) + 1
 
+    allocate(alpha(lb(1):ub(1),lb(2):ub(2)))
+    alpha = 0
+
     if (earthvm_get_local_pet() == 0) then
       call netcdf_check(nf90_create(filename, NF90_CLOBBER, ncid))
       call netcdf_check(nf90_def_dim(ncid, 'X', x_size, xdimid))
@@ -49,26 +54,50 @@ contains
       call netcdf_check(nf90_def_var(ncid, 'Longitude', NF90_FLOAT, [xdimid, ydimid], varid))
       call netcdf_check(nf90_def_var(ncid, 'Latitude', NF90_FLOAT, [xdimid, ydimid], varid))
       call netcdf_check(nf90_def_var(ncid, 'Seamask', NF90_INT, [xdimid, ydimid], varid))
+      call netcdf_check(nf90_def_var(ncid, 'sinalpha', NF90_FLOAT, [xdimid, ydimid], varid))
+      call netcdf_check(nf90_def_var(ncid, 'cosalpha', NF90_FLOAT, [xdimid, ydimid], varid))
       call netcdf_check(nf90_enddef(ncid))
       call netcdf_check(nf90_close(ncid))
     end if
 
     do n = 0, earthvm_get_pet_count() - 1
       if (earthvm_get_local_pet() == n) then
+        
         call netcdf_check(nf90_open(filename, NF90_WRITE, ncid))
+        
         call netcdf_check(nf90_inq_varid(ncid, 'Longitude', varid))
         call netcdf_check(nf90_put_var(ncid, varid, lon_ptr(lb(1):ub(1), lb(2):ub(2)), &
                                        start=[lb(1), lb(2)], &
                                        count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1]))
+        
         call netcdf_check(nf90_inq_varid(ncid, 'Latitude', varid))
         call netcdf_check(nf90_put_var(ncid, varid, lat_ptr(lb(1):ub(1), lb(2):ub(2)), &
                                        start=[lb(1), lb(2)], &
                                        count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1]))
+        
         call netcdf_check(nf90_inq_varid(ncid, 'Seamask', varid))
         call netcdf_check(nf90_put_var(ncid, varid, mask_ptr(lb(1):ub(1), lb(2):ub(2)), &
                                        start=[lb(1), lb(2)], &
                                        count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1]))
+      
+        alpha = grid_rotation(lon_ptr(lb(1):ub(1),lb(2):ub(2)), lat_ptr(lb(1):ub(1),lb(2):ub(2)))
+ 
+        call netcdf_check(nf90_inq_varid(ncid, 'sinalpha', varid))
+        call netcdf_check(nf90_put_var(ncid, &
+                                       varid, &
+                                       sin(alpha), &
+                                       start=[lb(1), lb(2)], &
+                                       count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1]))
+        
+        call netcdf_check(nf90_inq_varid(ncid, 'cosalpha', varid))
+        call netcdf_check(nf90_put_var(ncid, &
+                                       varid, &
+                                       cos(alpha(lb(1):ub(1),lb(2):ub(2))), &
+                                       start=[lb(1), lb(2)], &
+                                       count=[ub(1)-lb(1)+1, ub(2)-lb(2)+1]))
+        
         call netcdf_check(nf90_close(ncid))
+      
       end if
       call ESMF_VMBarrier(earthvm_get_vm(), rc=rc)
     end do
