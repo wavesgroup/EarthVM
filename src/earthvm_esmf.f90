@@ -288,8 +288,9 @@ contains
     integer(ESMF_KIND_I4) :: i, j, im, jm
 
     im = size(lon, dim=1)
-    jm = size(lon, dim=1)
+    jm = size(lon, dim=2)
     allocate(res(im,jm), lon_scale(im,jm))
+    res = 0
 
     lon_scale = abs(cos(DEGREES_TO_RADIANS * lat))
 
