@@ -140,7 +140,6 @@ contains
     type(ESMF_Field), allocatable :: fields(:)
     integer :: rc
     integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
-    real, allocatable :: alpha(:,:)
 
     ! Create the new model instance.
     ! Arguments 2-4 are not used but must be provided.
@@ -158,9 +157,6 @@ contains
                        lat=dom % xlat(ips:ipe, jps:jpe), &
                        mask=nint(dom % xland(ips:ipe, jps:jpe) - 1))
     nest % grid = grid
-
-    alpha = grid_rotation(dom % xlong(ips:ipe, jps:jpe), &
-                          dom % xlat(ips:ipe, jps:jpe))
 
     ! Output the grid so we can verify that everything looks good
     call write_grid_to_netcdf(grid, name // '_grid.nc')
@@ -467,10 +463,15 @@ contains
     type(domain), pointer, intent(in) :: dom
     type(earthvm_model_type), intent(in) :: wrf_domain
     type(ESMF_Field) :: field
-    real, pointer :: field_values(:,:)
+    real(ESMF_KIND_R4), pointer :: field_values(:,:)
+    real(ESMF_KIND_R4), allocatable :: alpha(:,:)
     integer :: lb(2), ub(2)
     integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
     integer :: i, j
+
+    ! Calculate the grid rotation
+    alpha = grid_rotation(dom % xlong(ips:ipe, jps:jpe), &
+                          dom % xlat(ips:ipe, jps:jpe))
 
     ! Get the WRF start and end bounds in x and y dimensions
     call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
@@ -492,7 +493,7 @@ contains
     call set_field_values(field, 1 / dom % alt(ips:ipe,1,jps:jpe))
 
     block
-      real, dimension(ips:ipe,jps:jpe) :: wspd, wdir, taux, tauy
+      real, dimension(ips:ipe,jps:jpe) :: wspd, wdir, taux, tauy, taue, taun
 
       wspd = sqrt(dom % u10(ips:ipe,jps:jpe)**2 &
                 + dom % v10(ips:ipe,jps:jpe)**2)
@@ -511,13 +512,17 @@ contains
       tauy = dom % ust(ips:ipe,jps:jpe)**2 * dom % v10(ips:ipe,jps:jpe) &
            / (wspd * dom % alt(ips:ipe,1,jps:jpe))
 
+      ! Rotate from local to lat-lon grid
+      taue = taux * cos(alpha) - tauy * sin(alpha)
+      taun = taux * sin(alpha) + tauy * cos(alpha)
+
       ! Set x-component of surface stress (for coupling with ocean without waves)
       call ESMF_StateGet(wrf_domain % export_state, 'taux', field)
-      call set_field_values(field, taux)
+      call set_field_values(field, taue)
 
       ! Set y-component of surface stress (for coupling with ocean without waves)
       call ESMF_StateGet(wrf_domain % export_state, 'tauy', field)
-      call set_field_values(field, tauy)
+      call set_field_values(field, taun)
 
     end block
 
