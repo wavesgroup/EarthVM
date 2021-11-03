@@ -384,13 +384,21 @@ contains
     type(domain), pointer, intent(in) :: dom
     type(earthvm_model_type), intent(in) :: wrf_domain
     type(ESMF_Field) :: field
-    real, pointer :: field_values(:,:)
+    type(ESMF_Field) :: field_u, field_v
+    real(ESMF_KIND_R4), pointer :: field_values(:,:)
+    real(ESMF_KIND_R4), pointer :: field_u_values(:,:), field_v_values(:,:)
+    real(ESMF_KIND_R4), allocatable :: alpha(:,:)
+    real(ESMF_KIND_R4) :: cos_a, sin_a
     integer :: lb(2), ub(2)
     integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
     integer :: i, j
 
     ! Get the WRF start and end bounds in x and y dimensions
     call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
+
+    ! Calculate the grid rotation
+    alpha = grid_rotation(dom % xlong(ips:ipe, jps:jpe), &
+                          dom % xlat(ips:ipe, jps:jpe))
 
     ! Sea surface temperature
     call ESMF_StateGet(wrf_domain % import_state, 'sst', field)
@@ -402,20 +410,25 @@ contains
     end if
 
     ! Zonal surface current
-    call ESMF_StateGet(wrf_domain % import_state, 'u_current', field)
-    call get_field_values(field, field_values, lb, ub)
-    if (any(field_values /= 0)) then
-      do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
-        dom % earthvm_u_current(i,j) = field_values(i,j)
-      end do
-    end if
+    call ESMF_StateGet(wrf_domain % import_state, 'u_current', field_u)
+    call get_field_values(field_u, field_u_values, lb, ub)
 
     ! Meridional surface current
-    call ESMF_StateGet(wrf_domain % import_state, 'v_current', field)
-    call get_field_values(field, field_values, lb, ub)
-    if (any(field_values /= 0)) then
+    call ESMF_StateGet(wrf_domain % import_state, 'v_current', field_v)
+    call get_field_values(field_v, field_v_values, lb, ub)
+    
+    if (any(field_u_values /= 0)) then
       do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
-        dom % earthvm_v_current(i,j) = field_values(i,j)
+        ! Rotating back from lat-lon to local grid requires negative angle
+        !cos_a = cos(- alpha(i,j))
+        !sin_a = sin(- alpha(i,j))
+        !dom % earthvm_u_current(i,j) = field_u_values(i,j) * cos_a &
+        !                             - field_v_values(i,j) * sin_a
+        !dom % earthvm_v_current(i,j) = field_u_values(i,j) * sin_a &
+        !                             + field_v_values(i,j) * cos_a
+
+        dom % earthvm_u_current(i,j) = field_u_values(i,j)
+        dom % earthvm_v_current(i,j) = field_v_values(i,j)
       end do
     end if
 
