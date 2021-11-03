@@ -49,13 +49,12 @@ contains
     type(ESMF_Clock) :: clock
     type(ESMF_DistGrid) :: distgrid
     type(ESMF_Grid) :: grid
-    real(ESMF_KIND_R4), allocatable :: alpha(:,:)
     integer, intent(out) :: rc
 
     type(ESMF_Field), allocatable :: fields(:)
     integer :: ips, ipe, jps, jpe
     integer :: local_pet, pet_count
-    
+
     local_pet = earthvm_get_local_pet()
     pet_count = earthvm_get_pet_count()
 
@@ -69,8 +68,10 @@ contains
     call write_grid_to_netcdf(grid, 'umwm_grid.nc')
     
     ! Caluclate grid rotation for reuse in the run() subroutine
-    allocate(alpha(ips:ipe,jps:jpe))
-    alpha = grid_rotation(lon(ips:ipe,jps:jpe), lat(ips:ipe,jps:jpe))
+    ! Add one point buffer around each tile so that we have the grid rotation
+    ! in the halo regions.
+    allocate(alpha(ips-1:ipe+1,jps-1:jpe+1))
+    alpha = grid_rotation(lon(ips-1:ipe+1,jps-1:jpe+1), lat(ips-1:ipe+1,jps-1:jpe+1))
 
     ! create and add import fields to import state
     fields = [create_field(grid, 'wspd'), &
@@ -167,7 +168,6 @@ contains
     ! because they're needed for wave propagation across tile edges.
 
     ! Rotate the current vector (u, v) from lat-lon to wave model grid
-    ! Calculate the grid rotation first
 
     call ESMF_StateGet(import_state, 'u', field_u)
     call ESMF_FieldHalo(field_u, halo_route_handle)
@@ -175,13 +175,9 @@ contains
 
     call ESMF_StateGet(import_state, 'v', field_v)
     call ESMF_FieldHalo(field_v, halo_route_handle)
-    call get_field_values(field, field_v_values, lb, ub)
+    call get_field_values(field_v, field_v_values, lb, ub)
 
     do concurrent(i = iistart:iiend)
-
-      ! Unrotated
-      !uc(i) = field_u_values(mi(i),ni(i))
-      !vc(i) = field_v_values(mi(i),ni(i))
 
       ! Rotating back from lat-lon to local grid requires negative angle
       cos_a = cos(- alpha(mi(i),ni(i)))
@@ -239,6 +235,7 @@ contains
         sin_a = sin(alpha(mi(i),ni(i)))
         tmp_array(mi(i),ni(i)) = (taux_ocntop(i) - taux_snl(i)) * cos_a &
                                - (tauy_ocntop(i) - tauy_snl(i)) * sin_a
+        !tmp_array(mi(i),ni(i)) = (taux_ocntop(i) - taux_snl(i))
       end do
       call ESMF_StateGet(export_state, 'taux_ocn', field)
       call set_field_values(field, tmp_array)
@@ -295,8 +292,8 @@ contains
         cos_a = cos(alpha(mi(i),ni(i)))
         sin_a = sin(alpha(mi(i),ni(i)))
         !FIXME don't hardcode Stokes depths
-        tmp_array(mi(i),ni(i)) = 0.1 * (sum(us(i,1:10)) * cos_a &
-                                      + sum(vs(i,1:10)) * sin_a)
+        tmp_array(mi(i),ni(i)) = 0.1 * (sum(us(i,1:10)) * sin_a &
+                                      + sum(vs(i,1:10)) * cos_a)
       end do
       call ESMF_StateGet(export_state, 'v_stokes_1m', field)
       call set_field_values(field, tmp_array)
