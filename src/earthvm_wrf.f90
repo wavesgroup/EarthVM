@@ -469,12 +469,12 @@ contains
     integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
     integer :: i, j
 
+    ! Get the WRF start and end bounds in x and y dimensions
+    call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
+    
     ! Calculate the grid rotation
     alpha = grid_rotation(dom % xlong(ips:ipe, jps:jpe), &
                           dom % xlat(ips:ipe, jps:jpe))
-
-    ! Get the WRF start and end bounds in x and y dimensions
-    call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
 
     ! Set x-component of 10-m wind
     call ESMF_StateGet(wrf_domain % export_state, 'u10', field)
