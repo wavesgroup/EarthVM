@@ -5,6 +5,8 @@
 
 MODULE module_first_rk_step_part1
 
+  logical :: earthvm_modulate_enthalpy_fluxes = .false.
+
 CONTAINS
 
   SUBROUTINE first_rk_step_part1 (   grid , config_flags              &
@@ -908,6 +910,28 @@ BENCH_START(surf_driver_tim)
      &     grid%i_start(1),min(grid%i_end(1), ide-1),      &
      &     grid%j_start(1),min(grid%j_end(1), jde-1) )
 #endif
+
+  if (earthvm_modulate_enthalpy_fluxes) then
+    block
+
+      real :: wspd(ims:ime,jms:jme)
+      real :: urel(ims:ime,jms:jme)
+      real :: vrel(ims:ime,jms:jme)
+      real :: wspdrel(ims:ime,jms:jme)
+
+      wspd = sqrt(grid % u10**2 + grid % v10**2)
+      urel = grid % u10 - grid % earthvm_u_current - grid % earthvm_u_stokes
+      vrel = grid % v10 - grid % earthvm_v_current - grid % earthvm_v_stokes
+      wspdrel = sqrt(urel**2 + vrel**2)
+
+      do concurrent(i = ims:ime, j = jms:jme, grid % xland(i,j) > 1.5)
+        grid % hfx(i,j) = grid % hfx(i,j) * wspdrel(i,j) / wspd(i,j)
+        grid % qfx(i,j) = grid % qfx(i,j) * wspdrel(i,j) / wspd(i,j)
+        grid % lh(i,j) = grid % lh(i,j) * wspdrel(i,j) / wspd(i,j)
+      end do
+    
+    end block
+  end if
 
 BENCH_END(surf_driver_tim)
 
