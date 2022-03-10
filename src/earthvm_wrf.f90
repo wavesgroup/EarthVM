@@ -296,6 +296,7 @@ contains
   subroutine model_run(gridded_component, import_state, export_state, clock, rc)
 
     use module_sf_sfclayrev, only: earthvm_momentum_coupling
+    use module_first_rk_step_part1, only: earthvm_modulate_enthalpy_fluxes
 
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
@@ -312,7 +313,10 @@ contains
 
     ! Flip the coupling switch in the WRF surface layer module to override
     ! WRF's calculation of the surface roughness length
-    if (time_step_count > 1) earthvm_momentum_coupling = .true.
+    if (time_step_count > 1) then
+      earthvm_momentum_coupling = .true.
+      earthvm_modulate_enthalpy_fluxes = .true.
+    end if
 
     ! Associate the first domain with the WRF parent domain
     dom(1) % ptr => head_grid
