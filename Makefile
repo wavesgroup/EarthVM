@@ -11,6 +11,7 @@ ESMF_LINK_FLAGS = $(ESMF_F90LINKPATHS) \
 
 CPPFLAGS = -I$(ESMF_INCLUDE) \
            -I$(WRF)/external/esmf_time_f90 \
+           -I$(WRF)/dyn_em \
            -I$(WRF)/frame \
            -I$(WRF)/main \
            -I$(WRF)/phys \

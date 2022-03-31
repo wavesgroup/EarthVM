@@ -140,7 +140,6 @@ contains
     type(ESMF_Field), allocatable :: fields(:)
     integer :: rc
     integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
-    real, allocatable :: alpha(:,:)
 
     ! Create the new model instance.
     ! Arguments 2-4 are not used but must be provided.
@@ -158,9 +157,6 @@ contains
                        lat=dom % xlat(ips:ipe, jps:jpe), &
                        mask=nint(dom % xland(ips:ipe, jps:jpe) - 1))
     nest % grid = grid
-
-    alpha = grid_rotation(dom % xlong(ips:ipe, jps:jpe), &
-                          dom % xlat(ips:ipe, jps:jpe))
 
     ! Output the grid so we can verify that everything looks good
     call write_grid_to_netcdf(grid, name // '_grid.nc')
@@ -300,6 +296,7 @@ contains
   subroutine model_run(gridded_component, import_state, export_state, clock, rc)
 
     use module_sf_sfclayrev, only: earthvm_momentum_coupling
+    use module_first_rk_step_part1, only: earthvm_modulate_enthalpy_fluxes
 
     type(ESMF_GridComp) :: gridded_component
     type(ESMF_State) :: import_state, export_state
@@ -316,7 +313,10 @@ contains
 
     ! Flip the coupling switch in the WRF surface layer module to override
     ! WRF's calculation of the surface roughness length
-    if (time_step_count > 1) earthvm_momentum_coupling = .true.
+    if (time_step_count > 1) then
+      earthvm_momentum_coupling = .true.
+      earthvm_modulate_enthalpy_fluxes = .true.
+    end if
 
     ! Associate the first domain with the WRF parent domain
     dom(1) % ptr => head_grid
@@ -388,13 +388,21 @@ contains
     type(domain), pointer, intent(in) :: dom
     type(earthvm_model_type), intent(in) :: wrf_domain
     type(ESMF_Field) :: field
-    real, pointer :: field_values(:,:)
+    type(ESMF_Field) :: field_u, field_v
+    real(ESMF_KIND_R4), pointer :: field_values(:,:)
+    real(ESMF_KIND_R4), pointer :: field_u_values(:,:), field_v_values(:,:)
+    real(ESMF_KIND_R4), allocatable :: alpha(:,:)
+    real(ESMF_KIND_R4) :: cos_a, sin_a
     integer :: lb(2), ub(2)
     integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
     integer :: i, j
 
     ! Get the WRF start and end bounds in x and y dimensions
     call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
+
+    ! Calculate the grid rotation
+    alpha = grid_rotation(dom % xlong(ips:ipe, jps:jpe), &
+                          dom % xlat(ips:ipe, jps:jpe))
 
     ! Sea surface temperature
     call ESMF_StateGet(wrf_domain % import_state, 'sst', field)
@@ -406,20 +414,25 @@ contains
     end if
 
     ! Zonal surface current
-    call ESMF_StateGet(wrf_domain % import_state, 'u_current', field)
-    call get_field_values(field, field_values, lb, ub)
-    if (any(field_values /= 0)) then
-      do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
-        dom % earthvm_u_current(i,j) = field_values(i,j)
-      end do
-    end if
+    call ESMF_StateGet(wrf_domain % import_state, 'u_current', field_u)
+    call get_field_values(field_u, field_u_values, lb, ub)
 
     ! Meridional surface current
-    call ESMF_StateGet(wrf_domain % import_state, 'v_current', field)
-    call get_field_values(field, field_values, lb, ub)
-    if (any(field_values /= 0)) then
+    call ESMF_StateGet(wrf_domain % import_state, 'v_current', field_v)
+    call get_field_values(field_v, field_v_values, lb, ub)
+    
+    if (any(field_u_values /= 0)) then
       do concurrent (i = ips:ipe, j = jps:jpe, dom % xland(i,j) > 1.5)
-        dom % earthvm_v_current(i,j) = field_values(i,j)
+        ! Rotating back from lat-lon to local grid requires negative angle
+        !cos_a = cos(- alpha(i,j))
+        !sin_a = sin(- alpha(i,j))
+        !dom % earthvm_u_current(i,j) = field_u_values(i,j) * cos_a &
+        !                             - field_v_values(i,j) * sin_a
+        !dom % earthvm_v_current(i,j) = field_u_values(i,j) * sin_a &
+        !                             + field_v_values(i,j) * cos_a
+
+        dom % earthvm_u_current(i,j) = field_u_values(i,j)
+        dom % earthvm_v_current(i,j) = field_v_values(i,j)
       end do
     end if
 
@@ -467,13 +480,18 @@ contains
     type(domain), pointer, intent(in) :: dom
     type(earthvm_model_type), intent(in) :: wrf_domain
     type(ESMF_Field) :: field
-    real, pointer :: field_values(:,:)
+    real(ESMF_KIND_R4), pointer :: field_values(:,:)
+    real(ESMF_KIND_R4), allocatable :: alpha(:,:)
     integer :: lb(2), ub(2)
     integer :: ids, ide, jds, jde, ips, ipe, jps, jpe
     integer :: i, j
 
     ! Get the WRF start and end bounds in x and y dimensions
     call get_wrf_array_bounds(dom, ids, ide, jds, jde, ips, ipe, jps, jpe)
+    
+    ! Calculate the grid rotation
+    alpha = grid_rotation(dom % xlong(ips:ipe, jps:jpe), &
+                          dom % xlat(ips:ipe, jps:jpe))
 
     ! Set x-component of 10-m wind
     call ESMF_StateGet(wrf_domain % export_state, 'u10', field)
@@ -492,7 +510,7 @@ contains
     call set_field_values(field, 1 / dom % alt(ips:ipe,1,jps:jpe))
 
     block
-      real, dimension(ips:ipe,jps:jpe) :: wspd, wdir, taux, tauy
+      real, dimension(ips:ipe,jps:jpe) :: wspd, wdir, taux, tauy, taue, taun
 
       wspd = sqrt(dom % u10(ips:ipe,jps:jpe)**2 &
                 + dom % v10(ips:ipe,jps:jpe)**2)
@@ -511,13 +529,17 @@ contains
       tauy = dom % ust(ips:ipe,jps:jpe)**2 * dom % v10(ips:ipe,jps:jpe) &
            / (wspd * dom % alt(ips:ipe,1,jps:jpe))
 
+      ! Rotate from local to lat-lon grid
+      taue = taux * cos(alpha) - tauy * sin(alpha)
+      taun = taux * sin(alpha) + tauy * cos(alpha)
+
       ! Set x-component of surface stress (for coupling with ocean without waves)
       call ESMF_StateGet(wrf_domain % export_state, 'taux', field)
-      call set_field_values(field, taux)
+      call set_field_values(field, taue)
 
       ! Set y-component of surface stress (for coupling with ocean without waves)
       call ESMF_StateGet(wrf_domain % export_state, 'tauy', field)
-      call set_field_values(field, tauy)
+      call set_field_values(field, taun)
 
     end block
 
