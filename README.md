@@ -1,6 +1,7 @@
 # EarthVM
 
-EarthVM is a lightweight parallel framework for running and coupling weather, ocean, and wave models.
+EarthVM is a lightweight parallel framework for running and coupling
+weather, ocean, and wave models.
 
 ## Getting started
 
@@ -80,3 +81,15 @@ ESMF_SL_LIBLINKER = mpicxx
 ESMF_SL_LIBOPTS = -qpic -shared
 ESMF_SL_LIBLIBS =
 ```
+
+## Sample model dataset
+
+You can download a sample output of a high-resolution EarthVM simulation
+of Hurricane Dorian (2019) from
+[this Zenodo repository](https://zenodo.org/records/6127367).
+
+## Acknowledgements
+
+EarthVM development was supported by the National Science Foundation awards
+[1745384](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1745384) and
+[2006295](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2006295).
